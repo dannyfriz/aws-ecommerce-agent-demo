@@ -82,6 +82,8 @@ Los errores de autorización conservan el código `ACCESS_DENIED` y agregan un m
 
 Correlacionar por `request_id`; no habilitar logs completos de Authorization ni copiar tokens a tickets.
 
+Para demoras del asistente, separar la primera consulta de las siguientes y medir la respuesta completa. El [procedimiento de rendimiento](rendimiento.md) documenta las comprobaciones concurrentes, las conexiones reutilizadas, la memoria de las funciones y la comparación de tiempos.
+
 ## Costos y retiro manual
 
 Los consumos dependen de región, tokens, llamadas, retención y tráfico. Revisar los precios oficiales y presupuestos de la cuenta; no asumir free tier. Evitar loops de invocación y mantener límites de salida del modelo y de API. No garantizar cifras sin una estimación real.

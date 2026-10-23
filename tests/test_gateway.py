@@ -81,8 +81,15 @@ class GatewayTests(unittest.TestCase):
         for url in ("http://example.com/mcp", "https://user:pass@example.com/mcp", "file:///tmp/x"):
             with self.assertRaises(ValueError):
                 GatewayExecutor(FakeKms(), "key", url, self.transport)
-        with self.assertRaises(AppError):
-            SigV4Transport(Mock(), "us-east-1").call("http://example.com", {})
+        for url in ("http://example.com", "https://@example.com/mcp", "https://example.com/mcp#",
+                    "https://example.com/mcp#fragment", "https://[invalid"):
+            with self.subTest(url=url), patch("urllib3.PoolManager") as manager:
+                session = Mock()
+                with self.assertRaises(AppError) as error:
+                    SigV4Transport(session, "us-east-1").call(url, {})
+                self.assertEqual(error.exception.code, "GATEWAY_CONFIGURATION")
+                session.get_credentials.assert_not_called()
+                manager.return_value.request.assert_not_called()
 
     def test_denial_uses_known_reason_and_never_arbitrary_target_text(self):
         for reason in ("RESOURCE_NOT_AUTHORIZED", "UNTRUSTED_REASON", {"invalid": True}):
@@ -159,23 +166,141 @@ class GatewayTests(unittest.TestCase):
     def test_transport_stateless_mcp_headers_and_timeout(self):
         from botocore.credentials import Credentials
         session = Mock()
-        session.get_credentials.return_value = Credentials("testing", "testing")
+        credentials = Mock(wraps=Credentials("testing", "testing", "temporary-token"))
+        session.get_credentials.return_value = credentials
         result = Mock()
+        result.status = 200
         result.read.return_value = b'{"result":{}}'
-        opened = Mock()
-        opened.__enter__ = Mock(return_value=result)
-        opened.__exit__ = Mock(return_value=None)
-        opener = Mock()
-        opener.open.return_value = opened
-        with patch("urllib.request.build_opener", return_value=opener):
+        pool = Mock()
+        pool.request.return_value = result
+        with patch("urllib3.PoolManager", return_value=pool) as manager:
             SigV4Transport(session, "us-east-1").call("https://example.com/mcp", {"params": {"name": "EcommerceTools___read_order"}})
-        request = opener.open.call_args.args[0]
-        headers = {name.lower(): value for name, value in request.header_items()}
+        manager.assert_called_once_with(num_pools=1, maxsize=1, cert_reqs="CERT_REQUIRED")
+        self.assertEqual(pool.request.call_args.args, ("POST", "https://example.com/mcp"))
+        options = pool.request.call_args.kwargs
+        headers = {name.lower(): value for name, value in options["headers"].items()}
         self.assertEqual(headers["mcp-protocol-version"], "2026-07-28")
         self.assertEqual(headers["mcp-method"], "tools/call")
         self.assertEqual(headers["mcp-name"], "EcommerceTools___read_order")
         self.assertIn("authorization", headers)
-        self.assertEqual(opener.open.call_args.kwargs["timeout"], 8)
+        self.assertEqual(headers["x-amz-security-token"], "temporary-token")
+        self.assertEqual(headers["accept-encoding"], "identity")
+        self.assertEqual(options["timeout"].total, 8)
+        for name in ("retries", "redirect", "preload_content", "decode_content"):
+            self.assertIs(options[name], False)
+        result.read.assert_called_once_with(65537, decode_content=False)
+        result.release_conn.assert_called_once_with()
+        result.close.assert_not_called()
+        credentials.get_frozen_credentials.assert_called_once_with()
+
+    def test_transport_reuses_pool_but_refreshes_signature_and_credentials(self):
+        from botocore.credentials import Credentials
+        session = Mock()
+        first = Mock(wraps=Credentials("first-key", "testing", "first-token"))
+        second = Mock(wraps=Credentials("second-key", "testing", "second-token"))
+        session.get_credentials.side_effect = (first, second)
+        results = [Mock(status=200), Mock(status=200)]
+        for result in results:
+            result.read.return_value = b'{"result":{}}'
+        pool = Mock()
+        pool.request.side_effect = results
+        with patch("urllib3.PoolManager", return_value=pool) as manager:
+            transport = SigV4Transport(session, "us-east-1")
+            for action in ("read_order", "request_return"):
+                transport.call("https://example.com/mcp", {"params": {"name": "EcommerceTools___" + action}})
+        manager.assert_called_once()
+        self.assertEqual(session.get_credentials.call_count, 2)
+        self.assertEqual(pool.request.call_count, 2)
+        for credentials, result, request_call, key in zip((first, second), results, pool.request.call_args_list, ("first", "second")):
+            credentials.get_frozen_credentials.assert_called_once_with()
+            headers = {name.lower(): value for name, value in request_call.kwargs["headers"].items()}
+            self.assertIn("Credential=" + key + "-key/", headers["authorization"])
+            self.assertEqual(headers["x-amz-security-token"], key + "-token")
+            result.release_conn.assert_called_once_with()
+            result.close.assert_not_called()
+
+    def test_transport_closes_rejected_status_without_reading_or_retrying(self):
+        from botocore.credentials import Credentials
+        session = Mock()
+        session.get_credentials.return_value = Credentials("testing", "testing")
+        for status in (301, 302, 303, 307, 308, 400, 403, 429, 500, 503):
+            with self.subTest(status=status), patch("urllib3.PoolManager") as manager:
+                result = Mock(status=status)
+                pool = manager.return_value
+                pool.request.return_value = result
+                with self.assertRaises(AppError) as error:
+                    SigV4Transport(session, "us-east-1").call("https://example.com/mcp", {"params": {"name": "EcommerceTools___request_return"}})
+                self.assertEqual((error.exception.code, error.exception.status), ("GATEWAY_UNAVAILABLE", 503))
+                pool.request.assert_called_once()
+                result.read.assert_not_called()
+                result.close.assert_called_once_with()
+                result.release_conn.assert_called_once_with()
+
+    def test_transport_bounds_body_before_json_and_closes_invalid_response(self):
+        from botocore.credentials import Credentials
+        from urllib3.exceptions import ProtocolError
+        session = Mock()
+        session.get_credentials.return_value = Credentials("testing", "testing")
+        failures = (b"x" * 65537, b"[1]", b"invalid", b"\xff", ProtocolError("private diagnostic"))
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__), patch("urllib3.PoolManager") as manager:
+                result = Mock(status=200)
+                if isinstance(failure, Exception):
+                    result.read.side_effect = failure
+                else:
+                    result.read.return_value = failure
+                pool = manager.return_value
+                pool.request.return_value = result
+                with self.assertRaises(AppError) as error:
+                    SigV4Transport(session, "us-east-1").call("https://example.com/mcp", {"params": {"name": "EcommerceTools___request_return"}})
+                self.assertEqual(error.exception.code, "GATEWAY_UNAVAILABLE")
+                self.assertNotIn("private diagnostic", error.exception.message)
+                pool.request.assert_called_once()
+                result.read.assert_called_once_with(65537, decode_content=False)
+                result.close.assert_called_once_with()
+                result.release_conn.assert_called_once_with()
+
+    def test_transport_accepts_json_at_body_size_limit(self):
+        from botocore.credentials import Credentials
+        session = Mock()
+        session.get_credentials.return_value = Credentials("testing", "testing")
+        with patch("urllib3.PoolManager") as manager:
+            result = Mock(status=200)
+            result.read.return_value = b'{"value":"' + b"x" * (65536 - 12) + b'"}'
+            self.assertEqual(len(result.read.return_value), 65536)
+            manager.return_value.request.return_value = result
+            value = SigV4Transport(session, "us-east-1").call("https://example.com/mcp", {"params": {"name": "EcommerceTools___read_order"}})
+            self.assertEqual(len(value["value"]), 65536 - 12)
+            result.close.assert_not_called()
+            result.release_conn.assert_called_once_with()
+
+    def test_transport_network_and_credential_failures_do_not_retry_or_leak_details(self):
+        from botocore.credentials import Credentials
+        from botocore.exceptions import CredentialRetrievalError
+        from urllib3.exceptions import SSLError, ReadTimeoutError
+        for failure in (SSLError("private diagnostic"), ReadTimeoutError(None, None, "private diagnostic"), OSError("private diagnostic")):
+            with self.subTest(failure=type(failure).__name__), patch("urllib3.PoolManager") as manager:
+                session = Mock()
+                session.get_credentials.return_value = Credentials("testing", "testing")
+                pool = manager.return_value
+                pool.request.side_effect = failure
+                with self.assertRaises(AppError) as error:
+                    SigV4Transport(session, "us-east-1").call("https://example.com/mcp", {"params": {"name": "EcommerceTools___request_return"}})
+                self.assertEqual((error.exception.code, error.exception.status), ("GATEWAY_UNAVAILABLE", 503))
+                self.assertNotIn("private diagnostic", error.exception.message)
+                pool.request.assert_called_once()
+        for failure in (None, CredentialRetrievalError(provider="test", error_msg="private diagnostic")):
+            with self.subTest(credentials=type(failure).__name__), patch("urllib3.PoolManager") as manager:
+                session = Mock()
+                if isinstance(failure, Exception):
+                    session.get_credentials.side_effect = failure
+                else:
+                    session.get_credentials.return_value = failure
+                with self.assertRaises(AppError) as error:
+                    SigV4Transport(session, "us-east-1").call("https://example.com/mcp", {"params": {"name": "EcommerceTools___read_order"}})
+                self.assertEqual(error.exception.code, "GATEWAY_UNAVAILABLE")
+                self.assertNotIn("private diagnostic", error.exception.message)
+                manager.return_value.request.assert_not_called()
 
     def test_gateway_failure_has_no_direct_fallback(self):
         repo = MemoryRepository([Order("P-104", "camila", "Notebook", 499990)])

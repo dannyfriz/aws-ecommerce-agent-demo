@@ -4,7 +4,6 @@ from datetime import date
 import json
 import time
 from urllib.parse import urlparse
-from urllib.request import Request
 from uuid import uuid4
 from .domain import Actor, AppError, REFUND_WINDOW_DAYS, denied, refund_policy_error
 
@@ -62,43 +61,60 @@ def verify_context(kms, key_id: str, envelope: dict, action: str, order_id: str,
 
 
 class SigV4Transport:
-    """Transporte MCP acotado; nunca sigue redirecciones con credenciales firmadas."""
+    """Reutiliza HTTPS sin repetir operaciones ni seguir redirecciones firmadas."""
     def __init__(self, session, region: str):
+        from urllib3 import PoolManager
         self.session, self.region = session, region
+        self.pool = PoolManager(num_pools=1, maxsize=1, cert_reqs="CERT_REQUIRED")
 
     def call(self, url: str, payload: dict) -> dict:
         from botocore.auth import SigV4Auth
         from botocore.awsrequest import AWSRequest
-        from urllib.request import HTTPRedirectHandler, build_opener
-        from urllib.error import HTTPError, URLError
+        from botocore.exceptions import BotoCoreError
+        from urllib3.exceptions import HTTPError
+        from urllib3.util import Timeout
 
-        class NoRedirect(HTTPRedirectHandler):
-            def redirect_request(self, req, fp, code, msg, headers, newurl):
-                return None
-
-        parsed = urlparse(url)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            raise AppError("GATEWAY_CONFIGURATION", "La URL de Gateway debe usar HTTPS.", 503) from None
+        if (parsed.scheme != "https" or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or "#" in url):
             raise AppError("GATEWAY_CONFIGURATION", "La URL de Gateway debe usar HTTPS.", 503)
         data = canonical(payload)
-        credentials = self.session.get_credentials()
-        if credentials is None:
-            raise AppError("GATEWAY_UNAVAILABLE", "Gateway no está disponible.", 503)
-        request = AWSRequest(method="POST", url=url, data=data,
-                             headers={"Content-Type": "application/json", "Accept": "application/json",
-                                      "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-                                      "Mcp-Method": "tools/call", "Mcp-Name": payload["params"]["name"]})
-        SigV4Auth(credentials.get_frozen_credentials(), "bedrock-agentcore", self.region).add_auth(request)
+        result = None
+        confirmed = False
         try:
-            with build_opener(NoRedirect()).open(Request(url, data=data, headers=dict(request.headers), method="POST"), timeout=8) as result:
-                raw = result.read(65537)
-                if len(raw) > 65536:
-                    raise ValueError()
-                value = json.loads(raw)
-                if not isinstance(value, dict):
-                    raise ValueError()
-                return value
-        except (HTTPError, URLError, TimeoutError, ValueError, UnicodeError):
+            # Renovar y congelar credenciales por solicitud; el pool solo conserva conexiones.
+            credentials = self.session.get_credentials()
+            if credentials is None:
+                raise ValueError()
+            request = AWSRequest(method="POST", url=url, data=data,
+                                 headers={"Content-Type": "application/json", "Accept": "application/json",
+                                          "Accept-Encoding": "identity", "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+                                          "Mcp-Method": "tools/call", "Mcp-Name": payload["params"]["name"]})
+            SigV4Auth(credentials.get_frozen_credentials(), "bedrock-agentcore", self.region).add_auth(request)
+            result = self.pool.request("POST", url, body=data, headers=dict(request.headers),
+                                       timeout=Timeout(total=8), retries=False, redirect=False,
+                                       preload_content=False, decode_content=False)
+            if result.status != 200:
+                raise ValueError()
+            raw = result.read(65537, decode_content=False)
+            if len(raw) > 65536:
+                raise ValueError()
+            value = json.loads(raw)
+            if not isinstance(value, dict):
+                raise ValueError()
+            confirmed = True
+            return value
+        except (BotoCoreError, HTTPError, OSError, ValueError, UnicodeError):
             raise AppError("GATEWAY_UNAVAILABLE", "Gateway no pudo confirmar la operación.", 503) from None
+        finally:
+            if result is not None:
+                if not confirmed:
+                    # Descartar el socket sin drenar cuerpos potencialmente grandes o fallidos.
+                    result.close()
+                result.release_conn()
 
 
 class GatewayExecutor:

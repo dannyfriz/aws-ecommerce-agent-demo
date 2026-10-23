@@ -1,6 +1,7 @@
 """Casos de uso: autorización externa al modelo y aprobación humana."""
 import re
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -133,14 +134,27 @@ class Service:
         if actor.role == "customer" and requests_chat_approval(message):
             # Este rechazo depende del perfil verificado, no de memoria ni preferencias.
             return self.reject(actor, "chat", "", "CHAT_APPROVAL_REQUIRES_REVIEW", request_id)
-        preferences = self.preference_memory.get_preferences(actor.sub) if self.preference_memory else {"preferred_detail": "detailed", "language": "es"}
         context = None
         if self.conversation_memory is not None:
             session_id = str(uuid4()) if session_id is None else session_id
-            remembered = self.conversation_memory.get(actor.sub, session_id)
+        # Estas lecturas y el filtro no dependen entre sí; ninguna acción empieza antes de confirmarlas.
+        with ThreadPoolExecutor(max_workers=3) as dependencies:
+            preference_read = dependencies.submit(self.preference_memory.get_preferences, actor.sub) if self.preference_memory else None
+            context_read = dependencies.submit(self.conversation_memory.get, actor.sub, session_id) if self.conversation_memory is not None else None
+            guard_check = (dependencies.submit(self.content_guard.check, message)
+                           if self.content_guard and not requests_chat_approval(message) else None)
+            # Conservar la prioridad de errores de preferencias y contexto, sin caché ni tareas abandonadas.
+            preferences = preference_read.result() if preference_read else {"preferred_detail": "detailed", "language": "es"}
+            remembered = context_read.result() if context_read else None
             if remembered:
                 context = {"order_id": remembered.order_id, "pending_action": remembered.pending_action}
         try:
+            if guard_check:
+                try:
+                    guard_check.result()
+                except AppError as exc:
+                    self.repo.record(self.event(actor, "chat", "", "DENY", exc.reason or exc.code, False, request_id))
+                    raise
             result = self._chat(actor, message, request_id, context, preferences["preferred_detail"])
         except Exception:
             if self.conversation_memory is not None:
@@ -197,12 +211,6 @@ class Service:
                            "No hay una solicitud de devolución pendiente. Primero debe enviarla el cliente propietario.")
             return {"message": f"Como supervisor, puedes revisar {reference}. {explanation}",
                     "results": [result], "review_order_id": order["order_id"] if pending else None}
-        if self.content_guard:
-            try:
-                self.content_guard.check(message)
-            except AppError as exc:
-                self.repo.record(self.event(actor, "chat", "", "DENY", exc.reason or exc.code, False, request_id))
-                raise
         try:
             proposals = self.planner.plan(message, context=context) if context else self.planner.plan(message)
         except AppError:

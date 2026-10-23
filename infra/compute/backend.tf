@@ -29,7 +29,7 @@ resource "aws_lambda_function" "backend" {
   handler                        = "ecommerce_agent.handler.lambda_handler"
   runtime                        = "python3.14"
   architectures                  = ["arm64"]
-  memory_size                    = 512
+  memory_size                    = 1024
   timeout                        = 29
   reserved_concurrent_executions = var.lambda_reserved_concurrent_executions
   kms_key_arn                    = local.foundation.kms_key_arn
