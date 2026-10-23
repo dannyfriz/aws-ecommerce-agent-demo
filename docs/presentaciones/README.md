@@ -10,7 +10,7 @@ Las tres pausas de demo están en las diapositivas 8, 10 y 12: consultar P-104 c
 
 Las diapositivas 5 y 15 distinguen identidad y credenciales de la persona frente al rol de la aplicación. La 7 muestra el recorrido esencial de autorización; 13–14 explican IAM y AgentCore. Las diapositivas 17–20 desarrollan responsables, revisión, retiro y una guía para el primer proyecto.
 
-La arquitectura completa sigue en la diapositiva 23. El contexto firmado, datos y logs, costos, rutas con y sin modelo, confirmación humana, propuesta de Bedrock e idempotencia están en los anexos 24–30. Conservan los íconos AWS y los objetos editables.
+La arquitectura completa sigue en la diapositiva 23. El contexto firmado, los recursos Lambda y DynamoDB, costos, rutas con y sin modelo, confirmación humana, propuesta de Bedrock e idempotencia están en los anexos 24–30. Conservan los íconos AWS y los objetos editables.
 
 Las notas contienen únicamente oratoria fluida para estudiantes de nivel 200. Los tiempos, pasos de demo, conceptos de apoyo y fuentes quedan en el [guion separado](../demo-35-minutos.md). Ambos se generan desde una [fuente común](oratoria-nivel-200.json).
 
@@ -21,3 +21,5 @@ La demo ejecuta controles de autorización. La asignación de responsables, las 
 El respaldo usa diagramas y resultados esperados. No incluye capturas nuevas ni una grabación de la ejecución en vivo. Si la demo falla, el guion explica cómo continuar sin confundir un error técnico con una decisión de autorización.
 
 Esta entrega pública incluye únicamente la versión final.
+
+Las diapositivas 7, 13, 23 y 24 usan nombres del despliegue para conectar roles y permisos con la consola. El anexo 25 reúne los cuatro recursos. La [guía de nombres y ARN](../recursos-demo.md) conserva los identificadores estructurales con `CUENTA_AWS` en lugar del número de cuenta.

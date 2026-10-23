@@ -157,7 +157,7 @@ Estas son las reglas que queremos comprobar. Camila y Diego tienen perfil de cli
 
 **Oratoria para decir:**
 
-Vamos a seguir una consulta desde la página. Cognito autentica a la persona. Cuando la web envía la petición, API Gateway, la entrada de la API, comprueba la credencial de la sesión. Una API es la interfaz que la página usa para pedirle operaciones al servidor. El código en Lambda toma la identidad verificada y envía el texto a Bedrock. El modelo propone una función y el servidor comprueba que esa propuesta tenga una forma válida. Después, AgentCore Gateway recibe la llamada de la aplicación y aplica la política que limita las funciones disponibles. La Lambda de herramientas comprueba el contexto de identidad y las reglas del pedido, incluida su propiedad. Solo entonces realiza la operación sobre DynamoDB, donde guardamos los pedidos y las decisiones. La respuesta que vuelve a la página se construye con datos que el servidor ya verificó. En este recorrido hay varias comprobaciones, y cada una tiene una responsabilidad. Veamos qué ocurre con una consulta que sí corresponde a la cuenta conectada.
+Vamos a seguir una consulta desde la página y relacionar el dibujo con lo que está creado en AWS. Todos estos recursos comparten el prefijo ecommerce-agent-demo. Por eso, en el esquema destacamos sus terminaciones. Backend es la Lambda que coordina la petición, y tools es la Lambda de herramientas que verifica y ejecuta la operación. Primero Cognito identifica a la persona y API Gateway comprueba la credencial de su sesión. La Lambda backend toma esa identidad y envía el mensaje a Bedrock. El modelo propone una función. El servidor revisa la propuesta y la lleva a AgentCore Gateway. Ahí se controla si la aplicación puede usar esa función. Después, la Lambda tools comprueba el contexto y los permisos de la persona sobre el pedido. DynamoDB tiene dos tablas: orders guarda los pedidos y audit guarda la evidencia de las decisiones. El nombre del recurso nos ayuda a encontrarlo en la consola. El permiso viene de las reglas que acabamos de recorrer. La respuesta de la página usa datos que el servidor ya verificó. Ahora veamos una consulta permitida con la cuenta de Camila.
 
 **Transición:** Entramos como Camila y consultamos el pedido que le pertenece.
 
@@ -168,7 +168,9 @@ Vamos a seguir una consulta desde la página. Cognito autentica a la persona. Cu
 - **AgentCore Gateway:** Punto de acceso a las funciones de herramientas que verifica la llamada de la aplicación y aplica su política.
 - **DynamoDB:** Base de datos de AWS donde el laboratorio guarda pedidos y registros de decisiones.
 
-**Fuentes:** src/ecommerce_agent/application.py; infra/compute/agentcore.tf; docs/seguridad.md
+**Apoyo técnico (consulta opcional):** Los cuatro nombres se verificaron mediante consultas de solo lectura a AWS el 23 de octubre de 2026: ecommerce-agent-demo-backend, ecommerce-agent-demo-tools, ecommerce-agent-demo-orders y ecommerce-agent-demo-audit, en us-east-1. Los diagramas abrevian únicamente el prefijo común. La existencia del recurso no demuestra por sí sola su autorización; esa regla está en IAM, Policy y el código. Fuentes: infra/compute/backend.tf, infra/compute/agentcore.tf, infra/data/main.tf y docs/recursos-demo.md.
+
+**Fuentes:** src/ecommerce_agent/application.py; infra/compute/backend.tf; infra/compute/agentcore.tf; infra/data/main.tf; docs/recursos-demo.md; docs/seguridad.md
 
 ### 8. Consulta permitida: pedido propio (07:35–10:35)
 
@@ -292,7 +294,7 @@ Mensaje para copiar:
 
 **Oratoria para decir:**
 
-Volvamos a la identidad del programa. IAM define qué puede hacer ese código dentro de AWS. Una política de permisos combina acciones y recursos. Una acción puede ser leer un elemento de DynamoDB y el recurso puede ser la tabla de pedidos de este laboratorio. El recurso se identifica mediante un ARN, que es su nombre único dentro de AWS. Aplicar mínimo privilegio significa conceder las acciones y recursos que necesita cada función para su tarea. El rol del servidor puede llamar al modelo y a su Gateway. El rol de las herramientas tiene permisos para operar sobre las tablas correspondientes. No necesitan administrar toda la cuenta. Si concediéramos permisos de administrador por comodidad, ampliaríamos las consecuencias de un error de programación o de una credencial comprometida. También debemos recordar el límite que vimos antes: una política que permite leer una tabla no demuestra que Camila sea propietaria de cada fila. IAM controla el alcance técnico de la aplicación y el código conserva la autorización sobre cada pedido. Cuando agreguen una capacidad a un agente, conviene anotar la acción que necesita, el recurso al que debe llegar y el rol responsable de usarla.
+Ahora el ejemplo usa los recursos de esta demo. La función de herramientas, ecommerce-agent-demo-tools, utiliza un rol de IAM. En ese rol hay un permiso para leer un registro de la tabla ecommerce-agent-demo-orders. La acción se llama GetItem y el destino está identificado con un ARN. No hace falta memorizar esa cadena. Podemos reconocer sus partes: el servicio DynamoDB, la región, la cuenta y el nombre de la tabla. En la diapositiva, CUENTA_AWS representa el número de la cuenta, que dejamos fuera del material compartido. Con este permiso el programa puede llegar a esa tabla concreta. No necesita administrar toda la cuenta. El ARN de la función Lambda y el ARN de su rol también son distintos, aunque aquí compartan nombre: uno identifica el código que se ejecuta y el otro la identidad que obtiene permisos. Falta todavía la segunda comprobación. Que la aplicación pueda leer la tabla no significa que Camila pueda consultar todos los pedidos. El código compara su identidad con el propietario de cada pedido. Eso es lo que bloquea la consulta ajena que vimos. Mínimo privilegio acota el acceso técnico y la aplicación autoriza la operación de la persona.
 
 **Transición:** Dentro de ese alcance técnico, AgentCore restringe las funciones que se pueden invocar.
 
@@ -301,9 +303,11 @@ Volvamos a la identidad del programa. IAM define qué puede hacer ese código de
 - **Mínimo privilegio:** Conceder solo las acciones y los recursos necesarios para una tarea definida.
 - **Política IAM:** Regla de AWS que permite o rechaza acciones sobre recursos para una identidad.
 - **Rol IAM:** Identidad que la carga de trabajo asume para obtener sus permisos técnicos.
-- **ARN:** Identificador único de un recurso de AWS que permite acotar el destino de una política.
+- **ARN:** Identificador de un recurso de AWS. En los ejemplos de Lambda y DynamoDB incluye servicio, región, cuenta y nombre del recurso; permite acotar el destino de una política.
 
-**Fuentes:** src/ecommerce_agent/application.py; infra/compute/agentcore.tf; docs/seguridad.md
+**Apoyo técnico (consulta opcional):** Ejemplo parcial del permiso real de aws_iam_role.tools: Action=dynamodb:GetItem y Resource=arn:aws:dynamodb:us-east-1:CUENTA_AWS:table/ecommerce-agent-demo-orders. CUENTA_AWS es un marcador editorial; debe sustituirse por el identificador de la cuenta propia para obtener un ARN utilizable. El rol también tiene otras acciones expresas para su tarea; el ejemplo no representa la política completa. La función y la tabla se verificaron mediante consultas de solo lectura a AWS el 23 de octubre de 2026. Fuentes: infra/compute/agentcore.tf, infra/data/main.tf, src/ecommerce_agent/application.py y docs/recursos-demo.md.
+
+**Fuentes:** src/ecommerce_agent/application.py; infra/compute/agentcore.tf; infra/data/main.tf; docs/recursos-demo.md; docs/seguridad.md
 
 ### 14. AgentCore: acceso a las funciones (19:20–21:20)
 
@@ -454,7 +458,7 @@ Las diapositivas 23–30 están ocultas en el avance normal. No forman parte de 
 |---|---|
 | 23 | Apoyo: arquitectura completa |
 | 24 | Apoyo: contexto firmado |
-| 25 | Apoyo: datos, registros y claves |
+| 25 | Recursos desplegados de la demo |
 | 26 | Apoyo: costos de la demo |
 | 27 | Apoyo: rutas con y sin modelo |
 | 28 | Apoyo: confirmación humana |
@@ -467,9 +471,9 @@ Las diapositivas 23–30 están ocultas en el avance normal. No forman parte de 
 
 **Oratoria para decir:**
 
-El dibujo reúne toda la demo. A la izquierda está el navegador, donde vemos la página. Los archivos de esa página se guardan de forma privada en S3 y CloudFront los entrega por internet. WAF filtra solicitudes sospechosas dirigidas a esa distribución de la página. Route 53 permite encontrar la aplicación por su nombre y ACM administra el certificado de HTTPS, que protege la conexión del navegador. Cognito se encarga del inicio de sesión. Las peticiones de la web llegan a API Gateway y después al backend, nuestro código del servidor, que se ejecuta en Lambda. Si hay que interpretar un mensaje, Lambda consulta un modelo mediante Bedrock. Luego puede llevar la función propuesta a AgentCore Gateway, donde Policy controla el acceso de la aplicación. La Lambda de destino comprueba los permisos de la persona antes de trabajar con el pedido. DynamoDB guarda los pedidos y las decisiones. Los servicios de abajo apoyan ese recorrido: IAM limita los permisos de cada componente. KMS administra las claves de seguridad. CloudWatch reúne registros para investigar fallos y Cost Explorer permite revisar los costos. También tenemos una ruta directa al servidor para los botones y la confirmación de Sofía. Esa ruta funciona sin llamar al modelo. Vamos a acercarnos ahora a los componentes de IA.
+Este anexo permite ubicar los controles dentro de la arquitectura completa. S3 guarda la página de forma privada y CloudFront la entrega al navegador. WAF filtra solicitudes dirigidas a esa distribución. Route 53 resuelve el nombre de la web y ACM administra su certificado para HTTPS. Cognito identifica a la persona y API Gateway recibe las peticiones. Aquí reconocemos las dos Lambdas por sus nombres: backend coordina la aplicación y tools ejecuta las funciones después de comprobar el acceso. Ambas comparten el prefijo del laboratorio que aparece en la leyenda. Bedrock interpreta el mensaje y propone una función. AgentCore Gateway y Policy controlan si la aplicación puede invocarla. La Lambda de herramientas verifica además la identidad de la persona y las reglas del pedido. Al final están las tablas orders, con los pedidos, y audit, con las decisiones. IAM limita los permisos técnicos, KMS administra claves, CloudWatch reúne registros y Cost Explorer permite revisar costos. Los botones y la confirmación de Sofía usan una ruta directa al backend, sin llamar al modelo. Así podemos ubicar cada nombre de la consola y explicar qué control cumple en la demo.
 
-**Transición:** Empecemos por Bedrock y veamos exactamente qué recibe y qué devuelve.
+**Transición:** Si la pregunta es cómo llega la identidad de la persona a la herramienta, podemos abrir el anexo del contexto firmado.
 
 **Conceptos de apoyo:**
 
@@ -482,15 +486,15 @@ El dibujo reúne toda la demo. A la izquierda está el navegador, donde vemos la
 - **Amazon DynamoDB:** Base de datos administrada que almacena pedidos y eventos de decisión.
 - **Servicios de apoyo:** IAM controla permisos; KMS administra claves; CloudWatch reúne registros; Cost Explorer consulta costos.
 
-**Apoyo técnico (consulta opcional):** El esquema integra entrega web, identidad, API, orquestación, inferencia, herramientas y datos. WAF protege solo la distribución CloudFront del frontend. El acceso S3 usa OAC. Route 53 y ACM proporcionan dominios HTTPS existentes y compartidos. Hay dos Lambdas con roles separados. Bedrock se invoca mediante un application inference profile para atribución de costos; no es otro modelo. La aprobación humana y las herramientas directas de la API evitan el recorrido Bedrock/Gateway. Las flechas muestran invocaciones principales; se omiten respuestas y conexiones de controles para legibilidad. Fuente: docs/arquitectura.md y los diagramas de docs/assets.
+**Apoyo técnico (consulta opcional):** El esquema integra entrega web, identidad, API, orquestación, inferencia, herramientas y datos. WAF protege solo la distribución CloudFront del frontend. El acceso S3 usa OAC. Route 53 y ACM proporcionan dominios HTTPS existentes y compartidos. ecommerce-agent-demo-backend y ecommerce-agent-demo-tools tienen roles separados; ecommerce-agent-demo-orders y ecommerce-agent-demo-audit separan pedidos y decisiones. Los cuatro recursos se verificaron mediante consultas de solo lectura a AWS el 23 de octubre de 2026, en us-east-1. Bedrock se invoca mediante un application inference profile para atribución de costos; no es otro modelo. La aprobación humana y las herramientas directas de la API evitan el recorrido Bedrock/Gateway. Las flechas muestran invocaciones principales; se omiten respuestas y conexiones de controles para legibilidad. Fuentes: docs/arquitectura.md, docs/recursos-demo.md, infra/compute/backend.tf, infra/compute/agentcore.tf e infra/data/main.tf.
 
-**Fuentes:** docs/arquitectura.md; docs/assets/README.md
+**Fuentes:** docs/arquitectura.md; docs/assets/README.md; docs/recursos-demo.md; infra/compute/backend.tf; infra/compute/agentcore.tf; infra/data/main.tf
 
 #### 24. Apoyo: contexto firmado — apoyo
 
 **Oratoria para decir:**
 
-Sigamos una petición que sí pasa por el modelo. Lambda recibe la propuesta de Bedrock y la revisa. Después agrega información de la sesión real: la identidad de la persona, la acción, el pedido y un vencimiento de treinta segundos. Esa identidad la aporta el servidor, no el mensaje del usuario ni el modelo. Con KMS calculamos un HMAC, una marca criptográfica que permite comprobar que ese contexto es auténtico y no fue alterado. La marca no cifra el contenido ni concede permisos por sí sola. La llamada a Gateway también lleva una firma que permite comprobar que viene del rol de Lambda. Policy comprueba el acceso de esa aplicación a la función. En el destino se verifican la marca, el plazo y la coincidencia de acción y pedido. Luego se comprueban los permisos de la persona antes de acceder a DynamoDB. Los treinta segundos son del contexto de esta llamada. No son la duración de la sesión de Camila.
+Sigamos una petición que sí pasa por el modelo. La Lambda backend recibe la propuesta de Bedrock y la revisa. Después agrega información de la sesión real: la identidad de la persona, la acción, el pedido y un vencimiento de treinta segundos. Esa identidad la aporta el servidor, no el mensaje del usuario ni el modelo. Con KMS calculamos un HMAC, una marca criptográfica que permite comprobar que ese contexto es auténtico y no fue alterado. La marca no cifra el contenido ni concede permisos por sí sola. La llamada a Gateway también lleva una firma que permite comprobar que viene del rol de la Lambda backend. Policy comprueba el acceso de esa aplicación a la función. La Lambda tools, identificada con ese mismo nombre en la consola, verifica la marca, el plazo y la coincidencia de acción y pedido. Luego comprueba los permisos de la persona antes de acceder a la tabla de pedidos. Esos dos nombres del dibujo nos ayudan a distinguir quién prepara el contexto y quién lo verifica. Los treinta segundos son del contexto de esta llamada. No son la duración de la sesión de Camila.
 
 **Transición:** Veamos qué se guarda para comprobar después si la acción realmente ocurrió.
 
@@ -502,29 +506,29 @@ Sigamos una petición que sí pasa por el modelo. Lambda recibe la propuesta de 
 - **SigV4:** Método de AWS para firmar una petición con las credenciales de la aplicación que llama.
 - **Vigencia de treinta segundos:** Plazo máximo del contexto de esa llamada, distinto del vencimiento del token de usuario.
 
-**Apoyo técnico (consulta opcional):** Los 30 segundos son la vigencia del contexto, no la duración de la clave KMS ni del JWT. Backend: GenerateMac. Target: VerifyMac, vencimiento y binding. MCP + SigV4. Policy ENFORCE restringe workload y herramientas; no sustituye la autorización humana. Fuente: src/ecommerce_agent/gateway.py e infra/compute/agentcore.tf.
+**Apoyo técnico (consulta opcional):** Los 30 segundos son la vigencia del contexto, no la duración de la clave KMS ni del JWT. ecommerce-agent-demo-backend prepara el contexto con GenerateMac; ecommerce-agent-demo-tools comprueba VerifyMac, vencimiento y binding. Los nombres se verificaron mediante consultas de solo lectura a AWS el 23 de octubre de 2026. MCP + SigV4. Policy ENFORCE restringe workload y herramientas; no sustituye la autorización humana. Fuentes: src/ecommerce_agent/gateway.py, infra/compute/backend.tf, infra/compute/agentcore.tf y docs/recursos-demo.md.
 
-**Fuentes:** https://docs.aws.amazon.com/kms/latest/developerguide/hmac.html; src/ecommerce_agent/gateway.py
+**Fuentes:** https://docs.aws.amazon.com/kms/latest/developerguide/hmac.html; src/ecommerce_agent/gateway.py; infra/compute/backend.tf; infra/compute/agentcore.tf; docs/recursos-demo.md
 
-#### 25. Apoyo: datos, registros y claves — apoyo
+#### 25. Recursos desplegados de la demo — apoyo
 
 **Oratoria para decir:**
 
-Además de controlar el acceso, necesitamos saber qué ocurrió. DynamoDB guarda los pedidos y la evidencia de las decisiones. Cuando una operación modifica un pedido, el cambio y su evento se guardan juntos: ambos o ninguno. Eso es una escritura atómica. Una consulta o un rechazo puede dejar evidencia sin cambiar el pedido. La versión aumenta cuando cambia el pedido y nos ayuda a detectar información anterior. CloudWatch reúne los registros técnicos, o logs, para investigar fallos usando el identificador de solicitud. KMS administra las claves de cifrado. Otra clave se usa para el contexto HMAC. IAM limita lo que puede hacer cada componente. Así podemos comprobar tanto qué se autorizó como qué cambió realmente. Nos falta ver la parte de supervisión humana.
+Aquí están los cuatro recursos con los mismos nombres que podemos buscar en la consola de AWS. Las dos funciones Lambda terminan en backend y tools. La primera coordina las peticiones y la segunda comprueba y ejecuta las funciones de herramientas. Las dos tablas DynamoDB terminan en orders y audit. Orders guarda los pedidos, con su propietario, estado y versión. Audit guarda la evidencia de las decisiones, incluso cuando se rechaza una consulta. Cuando una operación modifica un pedido, el cambio y su evento se guardan juntos, ambos o ninguno. Una consulta puede dejar evidencia sin modificar la compra. La guía de recursos incluye sus ARN completos con la cuenta sustituida. El ejemplo IAM de la charla usa el de la tabla de pedidos. No necesitamos memorizarlos: fijémonos en el servicio y en el nombre que aparece al final. La región es la misma y CUENTA_AWS representa la cuenta del laboratorio. Si buscamos estos nombres en la consola, podemos conectar el dibujo con el código y revisar a qué recurso permite llegar cada política. Ese es el propósito de este anexo: reconocer qué existe y dónde se aplica cada permiso.
 
-**Transición:** Hasta aquí vimos controles automáticos. Ahora Sofía realizará la revisión humana.
+**Transición:** Con estos nombres podemos volver al permiso de lectura y reconocer exactamente la tabla a la que se refiere.
 
 **Conceptos de apoyo:**
 
 - **Cambio atómico:** El pedido y el evento se escriben juntos en una transacción; si falla una parte, no se confirma la otra.
 - **Versión:** Número que aumenta con un cambio del pedido y permite rechazar una confirmación sobre datos anteriores.
-- **CloudWatch y logs:** CloudWatch recibe registros técnicos de API y Lambda para investigar su operación.
-- **CMK:** En esta presentación, clave administrada por el cliente en KMS y usada para cifrar datos y registros.
+- **Tabla de pedidos y tabla de auditoría:** orders conserva el estado de las compras; audit conserva eventos de decisiones, incluidos los rechazos. Sus funciones y permisos son distintos.
+- **ARN de función y ARN de rol:** La función Lambda y su rol IAM son recursos diferentes. Su ARN cambia de servicio y estructura, aunque ambos compartan un nombre.
 - **Identificador de solicitud:** Código que permite relacionar una respuesta con su evento o registro operativo.
 
-**Apoyo técnico (consulta opcional):** La auditoría tiene TTL; no es eterna ni se presenta como inmutable. Reiniciar evidencias visibles no borra la auditoría. No mostrar logs con datos sensibles ni afirmar que la UI es el control de autorización.
+**Apoyo técnico (consulta opcional):** Inventario confirmado mediante consultas de solo lectura a AWS el 23 de octubre de 2026: dos funciones Lambda Active y dos tablas DynamoDB ACTIVE, en us-east-1. ARN publicados: arn:aws:lambda:us-east-1:CUENTA_AWS:function:ecommerce-agent-demo-backend; arn:aws:lambda:us-east-1:CUENTA_AWS:function:ecommerce-agent-demo-tools; arn:aws:dynamodb:us-east-1:CUENTA_AWS:table/ecommerce-agent-demo-orders; arn:aws:dynamodb:us-east-1:CUENTA_AWS:table/ecommerce-agent-demo-audit. CUENTA_AWS sustituye editorialmente al identificador real; no es un ARN listo para ejecutar. Los nombres derivan de project y environment y pueden cambiar en otro despliegue. La auditoría tiene TTL; no es eterna ni se presenta como inmutable. Reiniciar evidencias visibles no borra la auditoría. Fuentes: infra/compute/backend.tf, infra/compute/agentcore.tf, infra/data/main.tf, src/ecommerce_agent/adapters.py y docs/recursos-demo.md.
 
-**Fuentes:** src/ecommerce_agent/adapters.py; infra/foundation/storage.tf
+**Fuentes:** src/ecommerce_agent/adapters.py; infra/compute/backend.tf; infra/compute/agentcore.tf; infra/data/main.tf; docs/recursos-demo.md
 
 #### 26. Apoyo: costos de la demo — apoyo
 
@@ -644,6 +648,6 @@ Conservar la consulta de Camila a P-104, el intento de consultar P-205 y el cont
 
 ## Preguntas: últimos diez minutos
 
-Abrir preguntas tras la diapositiva 22. Usar los anexos solo cuando aporten a la pregunta: arquitectura completa, contexto firmado, datos y registros, costos, rutas de ejecución, confirmación humana, llamada al modelo o reintentos. Volver siempre a quién se identifica, quién autoriza y qué evidencia queda. Si no hay preguntas, repasar cómo asignar un responsable, revisar un permiso y retirarlo en un primer proyecto con IA.
+Abrir preguntas tras la diapositiva 22. Usar los anexos solo cuando aporten a la pregunta: arquitectura completa, contexto firmado, recursos y tablas, costos, rutas de ejecución, confirmación humana, llamada al modelo o reintentos. Volver siempre a quién se identifica, quién autoriza y qué evidencia queda. Si no hay preguntas, repasar cómo asignar un responsable, revisar un permiso y retirarlo en un primer proyecto con IA.
 
 Fuentes del proyecto: [arquitectura](arquitectura.md), [API](api.md), [casos de uso](../src/ecommerce_agent/application.py), [identidad](../infra/foundation/identity.tf) y [autenticación web](../web/auth.js).

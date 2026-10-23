@@ -25,6 +25,6 @@ La evidencia visible se relaciona con la sesión y la respuesta del servidor. La
 
 ## Material de apoyo
 
-Los anexos 23–30 conservan arquitectura completa, contexto HMAC, almacenamiento y registros, costos, rutas con y sin modelo, aprobación humana, propuesta de Bedrock e idempotencia. Están ocultos en el avance normal y disponibles para preguntas. El flujo detallado del reembolso no es el objetivo del recorrido principal.
+Los anexos 23–30 conservan arquitectura completa, contexto HMAC, nombres de recursos y tablas, costos, rutas con y sin modelo, aprobación humana, propuesta de Bedrock e idempotencia. Están ocultos en el avance normal y disponibles para preguntas. El flujo detallado del reembolso no es el objetivo del recorrido principal.
 
 Las prácticas de asignación de responsables, revisión periódica y retiro son recomendaciones de operación. La demo no automatiza ese gobierno completo. Al retirar accesos hay que considerar credenciales ya emitidas, vencimiento y propagación, y comprobar el rechazo efectivo. La aprobación del laboratorio solo cambia un estado y no integra un procesador de pagos.

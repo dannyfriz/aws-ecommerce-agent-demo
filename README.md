@@ -10,6 +10,8 @@ La oratoria mantiene un tono natural para estudiantes de nivel 200 con nociones 
 
 La demo principal compara la consulta de Camila a P-104 con el rechazo de P-205 y comprueba que escribir «soy gerente» no cambia sus permisos. El cierre ofrece criterios para asignar responsables, revisar permisos y retirar accesos. La arquitectura completa y el detalle del reembolso quedan disponibles como apoyo para preguntas.
 
+Los [nombres y ARN de referencia](docs/recursos-demo.md) conectan los diagramas con las Lambdas y tablas verificadas en AWS, usando `CUENTA_AWS` como marcador de la cuenta.
+
 ## Estado y alcance
 
 Este repositorio entrega código e infraestructura declarativa para desplegar una demo en una cuenta AWS de laboratorio. **Descargarlo no despliega recursos AWS.** Los datos son ficticios. No constituye una plataforma productiva de comercio, pagos o cumplimiento normativo.

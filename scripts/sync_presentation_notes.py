@@ -160,7 +160,7 @@ def render_guide(document, plan):
               '## Si hay retraso', '',
               'Conservar la consulta de Camila a P-104, el intento de consultar P-205 y el contraste de sus decisiones. Mantener la distinción entre persona y aplicación, el papel de IAM y AgentCore y la guía final de responsables, revisión y retiro. Acortar la interacción de la diapositiva 12 y las explicaciones de apoyo, sin omitir el rechazo esperado ni afirmar una ejecución no realizada. Los anexos ya están fuera del recorrido principal.', '',
               '## Preguntas: últimos diez minutos', '',
-              'Abrir preguntas tras la diapositiva 22. Usar los anexos solo cuando aporten a la pregunta: arquitectura completa, contexto firmado, datos y registros, costos, rutas de ejecución, confirmación humana, llamada al modelo o reintentos. Volver siempre a quién se identifica, quién autoriza y qué evidencia queda. Si no hay preguntas, repasar cómo asignar un responsable, revisar un permiso y retirarlo en un primer proyecto con IA.', '',
+              'Abrir preguntas tras la diapositiva 22. Usar los anexos solo cuando aporten a la pregunta: arquitectura completa, contexto firmado, recursos y tablas, costos, rutas de ejecución, confirmación humana, llamada al modelo o reintentos. Volver siempre a quién se identifica, quién autoriza y qué evidencia queda. Si no hay preguntas, repasar cómo asignar un responsable, revisar un permiso y retirarlo en un primer proyecto con IA.', '',
               'Fuentes del proyecto: [arquitectura](arquitectura.md), [API](api.md), [casos de uso](../src/ecommerce_agent/application.py), [identidad](../infra/foundation/identity.tf) y [autenticación web](../web/auth.js).', '']
     return '\n'.join(lines)
 
