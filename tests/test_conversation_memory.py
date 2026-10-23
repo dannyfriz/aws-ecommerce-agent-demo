@@ -181,6 +181,44 @@ class AgentCoreConversationMemoryTests(unittest.TestCase):
                 result = self.memory.get("camila", SESSION)
                 self.assertTrue(result is None or result.order_id is None)
 
+    def test_expired_legacy_map_is_not_parsed_or_reused(self):
+        expired = event(timestamp=NOW - 890)
+        expired["payload"] = [{"blob": "{schema_version=1, pending_action=request_return, order_id=P-104}"}]
+        with Stubber(self.client) as stub:
+            stub.add_response("list_events", {"events": [expired]}, self.params)
+            self.assertIsNone(self.memory.get("camila", SESSION))
+
+    def test_expired_invalid_history_does_not_block_fresh_valid_context(self):
+        expired = event(timestamp=NOW - 1000)
+        expired["payload"] = [{"blob": "{schema_version=1, order_id=P-104}"}]
+        fresh = event(order_id="P-205", timestamp=NOW)
+        for records in ([expired, fresh], [fresh, expired]):
+            with self.subTest(records=records), Stubber(self.client) as stub:
+                stub.add_response("list_events", {"events": records}, self.params)
+                self.assertEqual(self.memory.get("camila", SESSION), ConversationContext("P-205", None, NOW + 900))
+
+    def test_newest_expired_marker_never_resurrects_an_older_order(self):
+        older = event(timestamp=NOW - 1000, expiry=NOW + 500)
+        latest = event(timestamp=NOW - 900)
+        latest["payload"] = [{"blob": "{schema_version=1, order_id=null}"}]
+        with Stubber(self.client) as stub:
+            stub.add_response("list_events", {"events": [latest], "nextToken": "older"}, self.params)
+            stub.add_response("list_events", {"events": [older]}, {**self.params, "nextToken": "older"})
+            self.assertIsNone(self.memory.get("camila", SESSION))
+
+    def test_expired_payload_never_bypasses_identity_or_header_validation(self):
+        for field, value in (("actorId", memory_actor_id("diego", "demo")), ("sessionId", OTHER_SESSION),
+                             ("memoryId", "other_memory-abcdefghij"), ("eventId", "malformed"),
+                             ("eventTimestamp", datetime.fromtimestamp(NOW - 1000))):
+            expired = event(timestamp=NOW - 1000)
+            expired["payload"] = [{"blob": "{schema_version=1, order_id=P-104}"}]
+            expired[field] = value
+            with self.subTest(field=field), Stubber(self.client) as stub:
+                stub.add_response("list_events", {"events": [expired]}, self.params)
+                with self.assertRaises(AppError) as error:
+                    self.memory.get("camila", SESSION)
+                self.assertEqual(error.exception.code, "MEMORY_UNAVAILABLE")
+
     def test_response_from_other_actor_session_or_memory_is_rejected(self):
         for field, value in (("actorId", memory_actor_id("diego", "demo")), ("sessionId", OTHER_SESSION),
                              ("memoryId", "other_conversation-abcdefghij")):

@@ -105,6 +105,9 @@ class Service:
             raise AppError("INVALID_INPUT", "Escribe una consulta de hasta 2.000 caracteres.")
         if actor.role not in {"customer", "supervisor"}:
             return self.reject(actor, "chat", "", "ROLE_NOT_ALLOWED", request_id)
+        if actor.role == "customer" and requests_chat_approval(message):
+            # Este rechazo depende del perfil verificado, no de memoria ni preferencias.
+            return self.reject(actor, "chat", "", "CHAT_APPROVAL_REQUIRES_REVIEW", request_id)
         preferences = self.preference_memory.get_preferences(actor.sub) if self.preference_memory else {"preferred_detail": "detailed", "language": "es"}
         context = None
         if self.conversation_memory is not None:
@@ -114,10 +117,14 @@ class Service:
                 context = {"order_id": remembered.order_id, "pending_action": remembered.pending_action}
         try:
             result = self._chat(actor, message, request_id, context, preferences["preferred_detail"])
-        except AppError:
+        except Exception:
             if self.conversation_memory is not None:
                 # Un pedido rechazado no deja una referencia anterior para otra devolución.
-                self.conversation_memory.remember(actor.sub, session_id, None, None)
+                try:
+                    self.conversation_memory.remember(actor.sub, session_id, None, None)
+                except Exception:
+                    # La limpieza no reemplaza el rechazo ni el error que interrumpió la operación.
+                    pass
             raise
         if self.conversation_memory is not None:
             clarification = result.get("clarification")

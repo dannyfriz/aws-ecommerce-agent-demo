@@ -19,9 +19,13 @@ Solo se guarda el identificador de un pedido al que el servidor ya permitió acc
 
 El contexto vence lógicamente a los **900 segundos**. Los eventos tienen una retención física de **7 días**, mínimo admitido por el provider usado. Vencer a los 15 minutos significa que la aplicación deja de utilizar el contexto; no significa que AWS haya eliminado el evento. Una referencia recordada solo ayuda a interpretar el mensaje: cada consulta o cambio vuelve a comprobar la sesión, la propiedad y el estado vigente en DynamoDB. [Memoria de corto plazo](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/short-term-create-event.html) y [retención del recurso Terraform](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_memory).
 
+Al leer el historial se comprueban primero la identidad, sesión y fecha de cada evento. Si su fecha ya supera la vigencia máxima del contexto, su contenido no se interpreta ni reutiliza, aunque siga almacenado. Se conserva su posición temporal para evitar recuperar un pedido anterior. Un evento vigente con contenido inválido, una cabecera de otra identidad o una falla del servicio siguen provocando un error explícito; no se interpretan formatos antiguos de manera permisiva.
+
 «Nueva conversación» cambia el UUID y limpia el chat visible. No elimina eventos remotos, preferencias, auditoría ni pedidos. Cerrar sesión también abandona la conversación del navegador. Estas opciones no deben presentarse como una eliminación de datos en AWS.
 
-Si falla la lectura del contexto, se rechaza la solicitud antes de ejecutar una acción. Si una acción ya terminó y luego falla el guardado del contexto, se conserva su resultado confirmado, se devuelve `memory_warning` y se cambia el UUID. La interfaz avisa que se debe indicar nuevamente el pedido; no informa que la devolución falló ni la ejecuta de nuevo automáticamente. Un error de autorización deja una marca de contexto vacío para evitar reutilizar una referencia anterior.
+Si falla la lectura del contexto, se rechaza la solicitud antes de ejecutar una acción. Si una acción ya terminó y luego falla el guardado del contexto, se conserva su resultado confirmado, se devuelve `memory_warning` y se cambia el UUID. La interfaz avisa que se debe indicar nuevamente el pedido; no informa que la devolución falló ni la ejecuta de nuevo automáticamente.
+
+Ante un error de chat, la interfaz abandona el UUID anterior, informa que comenzó otra conversación y pide indicar nuevamente el pedido. No reenvía el mensaje automáticamente ni modifica pedidos o auditoría. Los rechazos deterministas, como intentar aprobar un reembolso desde el perfil de cliente, se resuelven antes de consultar memoria o preferencias. En otros rechazos, el servidor intenta guardar una marca de contexto vacío; si esa limpieza falla, conserva el error original y su motivo de autorización.
 
 ## Preferencias explícitas entre sesiones
 

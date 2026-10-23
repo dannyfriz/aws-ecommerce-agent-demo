@@ -104,6 +104,9 @@ class AgentCoreConversationMemory(LocalConversationMemory):
 
     def _decode_event(self, event, actor_id, session_id, now):
         timestamp, event_id = self._validate_event_header(event, actor_id, session_id, now)
+        # Un evento vencido conserva su posición, pero su contenido ya no puede influir en la conversación.
+        if int(timestamp) + self.ttl_seconds <= int(now):
+            return timestamp, event_id, None
         payload = event.get("payload")
         if not isinstance(payload, list) or len(payload) != 1 or not isinstance(payload[0], dict) or set(payload[0]) != {"blob"}:
             raise ValueError("La memoria solo admite el contexto mínimo")
