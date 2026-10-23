@@ -73,7 +73,7 @@ El frontend no contiene credenciales AWS. La identidad del usuario viene del JWT
 
 Estas versiones estables se contrastaron con fuentes oficiales el **23 de octubre de 2026**. Python 3.15.1 es estable como lenguaje, pero su runtime Lambda sigue en preview: el despliegue conserva `python3.14`, última rama GA. Se eligió Node Current según el requisito de usar la última estable; no se lo presenta como LTS. CI utiliza `ubuntu-26.04`, ya disponible de forma general, y actions fijadas por SHA. Consultar [versiones y fuentes](docs/versiones.md) y [validación ejecutada](docs/validacion.md).
 
-Antes de trabajar, verificar versiones contra sus fuentes oficiales. El mismo control es obligatorio en CI y falla si encuentra una nueva versión estable, un pin inconsistente o una fuente no verificable:
+Al incorporar o actualizar herramientas y dependencias, verificar versiones contra sus fuentes oficiales. CI ejecuta este control cuando cambian los archivos de versiones, dependencias, instalación o workflows que contienen los pins. Falla si encuentra una nueva versión estable, un pin inconsistente o una fuente no verificable:
 
 ```powershell
 & ".\scripts\Check-Versions.ps1"
@@ -108,11 +108,15 @@ Preparar el bootstrap con un archivo de variables local, excluido de Git, y revi
 ```
 
 Aplicar el bootstrap de forma deliberada con `-Action apply`. El script genera `.build/outputs/bootstrap.json` y `.build/backend/foundation.hcl`, `data.hcl` y `compute.hcl`. El bootstrap es separado porque el bucket de estado debe existir antes de inicializar las capas. Completar `state_bucket` y región de los archivos de variables de aplicación según esas salidas y los ejemplos de cada capa. No publicar archivos con identificadores de la cuenta o configuraciones privadas.
-2. Ejecutar las pruebas y crear el paquete Lambda desde la raíz del repositorio:
+2. Ejecutar las pruebas afectadas por los cambios desde la raíz del repositorio:
 
 ```powershell
 & ".\scripts\Test.ps1"
 ```
+
+La selección usa los cambios locales y sus dependencias. Para revisar el plan sin ejecutar pruebas, usar `-PlanOnly`; para validar todo, usar `-Full`. En una copia recién clonada, sin modificaciones locales, usar `-Full` para la comprobación inicial. El [procedimiento de pruebas diferenciales](docs/pruebas-diferenciales.md) explica los criterios y la comparación entre commits.
+
+Crear el paquete Lambda cuando cambien el backend o sus dependencias:
 
 ```powershell
 & ".\scripts\Package.ps1"

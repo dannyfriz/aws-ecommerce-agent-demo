@@ -9,7 +9,9 @@ Terraform mantiene bootstrap y foundation → data → compute; S3 privado y Clo
 
 ## Comandos frecuentes
 Dependencias: `python -m pip install --require-hashes -r requirements.lock`
-Validación: `& ".\scripts\Test.ps1"`
+Validar cambios: `& ".\scripts\Test.ps1"`
+Revisar selección: `& ".\scripts\Test.ps1" -PlanOnly`
+Validar todo: `& ".\scripts\Test.ps1" -Full`
 Versiones: `& ".\scripts\Check-Versions.ps1"`
 Seguridad: `& ".\scripts\Scan-Security.ps1"`
 Vista estática: `& ".\scripts\Serve-Web.ps1" -Port 8766`
@@ -22,6 +24,7 @@ Vista estática: `& ".\scripts\Serve-Web.ps1" -Port 8766`
 - `docs/arquitectura.md`, `docs/operacion.md`, `docs/seguridad.md`: diseño y límites.
 
 ## Reglas y estado
+Validación diferencial incorporada el 23 de octubre de 2026: Test.ps1 y CI comparten scripts/test_impact.py; grafo Python/JS, fixtures, contratos y consumidores Terraform. Docs omiten suites; conversation.js selecciona tres frontend; una prueba de memoria selecciona solo su suite. Frontend no se duplica por runtime y las evaluaciones locales no se repiten si su suite ya las cubre. Cambios del selector/CI justifican validación completa; Trivy sigue siendo obligatorio. Se comprobaron 35 pruebas del selector, nueve de CI y siete alcances de ejemplo. No repetir pruebas AWS para esta modificación de tooling. Ver docs/pruebas-diferenciales.md.
 Rendimiento optimizado el 23 de octubre de 2026: preferencias/contexto/Guardrails INPUT concurrentes con barrera previa a modelo y Gateway; errores deterministas y auditoría en el hilo llamador. Gateway reutiliza HTTPS con TLS, firma por solicitud, sin retries ni redirects; backend 1024 MB y herramientas 512 MB. Doce consultas reales: promedio 2,7025→2,0862 s (22,81% menos); primer chat observado tras último despliegue 7,0124 s. Controles intactos y pedidos sin cambios. Validación: 267 Python, siete suites frontend y 22 Terraform; detalles en docs/rendimiento.md.
 Pruebas de límites por cuenta verificadas el 23 de octubre de 2026: Camila intenta cambiar de rol para aprobar; Diego consulta un pedido ajeno; Sofía solicita una devolución por el cliente. La UI explica el resultado esperado y solo prepara el mensaje; el servidor responde 403 con motivo y auditoría, sin cambiar pedidos. Mantener los ejemplos alineados con fixtures por actor. Evidencia: 256 pruebas Python, siete suites frontend, 17 escenarios Bedrock y 15 verificaciones autenticadas aprobadas.
 Política ficticia de 90 días incorporada el 23 de octubre de 2026: purchased_on ISO UTC en DynamoDB; día 90 incluido, desde 91 rechaza devolución y aprobación sin mutación. Propietario/rol se comprueban primero; fecha ausente/inválida/futura bloquea escritura. P-206 de Diego inicia con 120 días, P-205 sigue como comparación reciente; reset conserva fecha. Seed -OrdersOnly no modifica identidades y backfill usa versión. Evidencia: 255 pruebas Python, siete suites frontend, 17 escenarios Bedrock y 15 verificaciones autenticadas aprobadas.
@@ -32,6 +35,7 @@ Responder, comentar código y escribir commits en español latinoamericano; usar
 Nunca confiar en identidad, rol, propietario o monto del prompt. El modelo no aprueba reembolsos.
 No registrar tokens, prompts ni contraseñas. No versionar credenciales, state, planes, outputs o variables privadas.
 Validar versiones y ejecutar Trivy antes de publicar o desplegar; bloquear HIGH/CRITICAL incluso sin corrección.
+Ejecutar pruebas diferenciales por defecto; ampliar a validación completa ante cambios transversales, dependencias, CI/selector, impacto desconocido o solicitud -Full. Repetir evaluaciones Bedrock, sesiones autenticadas y auditorías AWS solo cuando el componente afectado lo requiera. No reconstruir Lambda para cambios de documentación o frontend sin impacto en su contenido.
 Conservar CostCenter, Project, Environment y ManagedBy en default_tags de los providers.
 CI solo valida. No aplicar en producción ni eliminar recursos AWS sin autorización explícita.
 No publicar cambios remotos, modificar visibilidad ni crear una licencia sin instrucción del titular.

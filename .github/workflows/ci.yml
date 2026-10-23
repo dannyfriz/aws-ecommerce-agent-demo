@@ -2,12 +2,82 @@ name: Validación sin despliegue
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Ejecutar todas las pruebas y validaciones
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
   group: validacion-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  impacto:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.plan.outputs.python }}
+      frontend: ${{ steps.plan.outputs.frontend }}
+      terraform: ${{ steps.plan.outputs.terraform }}
+      python_tests: ${{ steps.plan.outputs.python_tests }}
+      frontend_tests: ${{ steps.plan.outputs.frontend_tests }}
+      javascript_checks: ${{ steps.plan.outputs.javascript_checks }}
+      terraform_layers: ${{ steps.plan.outputs.terraform_layers }}
+      evaluations: ${{ steps.plan.outputs.evaluations }}
+      package: ${{ steps.plan.outputs.package }}
+      versions: ${{ steps.plan.outputs.versions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Calcular impacto del cambio
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          FULL_VALIDATION: ${{ inputs.full }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          base = os.environ.get('BASE_SHA', '')
+          if os.environ['EVENT_NAME'] == 'workflow_dispatch':
+              base = 'HEAD^'
+          command = [sys.executable, 'scripts/test_impact.py', '--output', '.build/test-impact.json']
+          if os.environ.get('FULL_VALIDATION') == 'true':
+              command.append('--full')
+          else:
+              command.extend(['--base', base, '--head', os.environ['HEAD_SHA']])
+          subprocess.run(command, check=True)
+          plan = json.loads(Path('.build/test-impact.json').read_text(encoding='utf-8-sig'))
+          outputs = {key: json.dumps(plan[key], separators=(',', ':')) for key in (
+              'python_tests', 'frontend_tests', 'javascript_checks', 'terraform_layers')}
+          outputs.update({key: str(plan[key]).lower() for key in ('evaluations', 'package', 'versions')})
+          outputs.update({
+              'python': str(bool(plan['python_tests'] or plan['evaluations'] or plan['package'] or plan['versions'])).lower(),
+              'frontend': str(bool(plan['frontend_tests'] or plan['javascript_checks'] or plan['versions'])).lower(),
+              'terraform': str(bool(plan['terraform_layers'])).lower(),
+          })
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(''.join(f'{key}={value}\n' for key, value in outputs.items()))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write('## Validación según impacto\n\n')
+              summary.write(f"Modo: **{plan['mode']}**. Archivos modificados: {len(plan['changed_files'])}.\n\n")
+              for key in ('python_tests', 'frontend_tests', 'javascript_checks', 'terraform_layers'):
+                  summary.write(f'- {key}: {len(plan[key])}\n')
+              summary.write(f"- Evaluaciones: {plan['evaluations']}; paquete: {plan['package']}; versiones: {plan['versions']}.\n")
+              summary.write('- El análisis completo de seguridad se ejecuta siempre.\n\n')
+              summary.write('Motivos:\n\n' + '\n'.join('- ' + reason for reason in plan['reasons']) + '\n')
+          PY
+      - name: Comprobar artefactos y sintaxis del repositorio
+        run: python3 scripts/check_repository.py
   seguridad:
     runs-on: ubuntu-26.04
     timeout-minutes: 20
@@ -21,6 +91,8 @@ jobs:
       - name: Analizar vulnerabilidades, Terraform y secretos
         run: python scripts/security_scan.py
   aplicacion:
+    needs: impacto
+    if: needs.impacto.outputs.python == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     strategy:
@@ -32,64 +104,109 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '26.12.1'
-          package-manager-cache: false
       - name: Instalar dependencias verificadas
         run: |
           python -m pip install --upgrade pip==26.2.2
           python -m pip install --require-hashes -r requirements.lock
-      - name: Usar npm estable vigente
-        run: npm install --global npm@12.2.1
       - name: Verificar versiones vigentes y pins reales
-        if: matrix.python == '3.14.9'
+        if: matrix.python == '3.14.9' && needs.impacto.outputs.versions == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/audit_versions.py --output .build/version-audit.json
-      - name: Pruebas de negocio, identidad y adaptadores
+      - name: Pruebas Python afectadas
+        if: needs.impacto.outputs.python_tests != '[]'
         env:
-          PYTHONPATH: src
+          PYTHONPATH: src:tests
           AWS_EC2_METADATA_DISABLED: 'true'
-        run: python -m unittest discover -s tests -v
-      - name: Pruebas de autenticación del navegador
+          SELECTED_TESTS: ${{ needs.impacto.outputs.python_tests }}
         run: |
-          node tests/web-auth.test.mjs
-          node tests/web-evidence.test.mjs
-          node tests/web-order-sync.test.mjs
-          node tests/web-profiles.test.mjs
-          node tests/web-pending.test.mjs
-          node tests/web-review.test.mjs
-          node tests/web-conversation.test.mjs
-      - name: Evaluar conversaciones ficticias sin AWS
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import PurePosixPath
+          import subprocess
+          import sys
+
+          modules = []
+          for name in json.loads(os.environ['SELECTED_TESTS']):
+              path = PurePosixPath(name)
+              if path.parent.as_posix() != 'tests' or not path.name.startswith('test_') or path.suffix != '.py':
+                  raise SystemExit('Ruta de prueba Python no válida')
+              modules.append(path.stem)
+          subprocess.run([sys.executable, '-m', 'unittest', '-v', *modules], check=True)
+          PY
+      - name: Evaluar conversaciones ficticias afectadas sin AWS
+        if: matrix.python == '3.14.9' && needs.impacto.outputs.evaluations == 'true' && !contains(fromJSON(needs.impacto.outputs.python_tests), 'tests/test_agent_evaluations.py')
         env:
           PYTHONPATH: src
         run: python scripts/evaluate_agent.py
-      - name: Comprobar artefactos y sintaxis
-        run: python scripts/check_repository.py
-      - name: Empaquetar Lambda ARM64
+      - name: Empaquetar Lambda ARM64 cuando cambia su contenido
+        if: matrix.python == '3.14.9' && needs.impacto.outputs.package == 'true'
         run: python scripts/package.py
+  frontend:
+    needs: impacto
+    if: needs.impacto.outputs.frontend == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.12.1'
+          package-manager-cache: false
+      - name: Usar npm estable vigente
+        if: needs.impacto.outputs.versions == 'true'
+        run: npm install --global npm@12.2.1
+      - name: Comprobar JavaScript y ejecutar suites afectadas una sola vez
+        env:
+          SELECTED_TESTS: ${{ needs.impacto.outputs.frontend_tests }}
+          SELECTED_CHECKS: ${{ needs.impacto.outputs.javascript_checks }}
+        run: |
+          node --input-type=module - <<'JS'
+          import { spawnSync } from 'node:child_process';
+          const tests = JSON.parse(process.env.SELECTED_TESTS);
+          const checks = JSON.parse(process.env.SELECTED_CHECKS);
+          for (const [names, checking] of [[checks, true], [tests, false]]) {
+            for (const name of names) {
+              const valid = checking ? /^web\/[A-Za-z0-9_.-]+\.js$/.test(name) : /^tests\/web-[A-Za-z0-9_.-]+\.test\.mjs$/.test(name);
+              if (!valid) throw new Error('Ruta JavaScript no válida');
+              const result = spawnSync(process.execPath, checking ? ['--check', name] : [name], { stdio: 'inherit' });
+              if (result.error) throw result.error;
+              if (result.status !== 0) process.exit(result.status ?? 1);
+            }
+          }
+          JS
   terraform:
+    needs: impacto
+    if: needs.impacto.outputs.terraform == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: ${{ fromJSON(needs.impacto.outputs.terraform_layers) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: '1.17.0'
           terraform_wrapper: false
-      - name: Formato Terraform
-        run: terraform -chdir=infra fmt -check -recursive
-      - name: Validar las cuatro raíces sin backend remoto
-        shell: bash
+      - name: Formato, validación y pruebas de la capa afectada
+        env:
+          SELECTED_LAYER: ${{ matrix.layer }}
         run: |
-          set -euo pipefail
-          for layer in bootstrap foundation data compute; do
-            terraform -chdir=infra/$layer init -backend=false -input=false -lockfile=readonly
-            terraform -chdir=infra/$layer validate -no-color
-          done
-      - name: Pruebas de infraestructura con proveedor simulado
-        run: |
-          terraform -chdir=infra/foundation test -no-color
-          terraform -chdir=infra/data test -no-color
-          terraform -chdir=infra/compute test -no-color
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          layer = os.environ['SELECTED_LAYER']
+          if layer not in {'bootstrap', 'foundation', 'data', 'compute'}:
+              raise SystemExit('Capa Terraform no válida')
+          command = ['terraform', f'-chdir=infra/{layer}']
+          subprocess.run(command + ['fmt', '-check', '-recursive'], check=True)
+          subprocess.run(command + ['init', '-backend=false', '-input=false', '-lockfile=readonly'], check=True)
+          subprocess.run(command + ['validate', '-no-color'], check=True)
+          if (Path('infra') / layer / 'tests').is_dir():
+              subprocess.run(command + ['test', '-no-color'], check=True)
+          PY
