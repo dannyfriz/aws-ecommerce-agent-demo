@@ -63,7 +63,7 @@
     {
       "slide": 4,
       "seconds": 60,
-      "title": "Agente de soporte posventa",
+      "title": "Herramientas: funciones programadas",
       "speech": "Una herramienta es una función programada para una tarea concreta. Aquí tenemos dos: read_order consulta un pedido y request_return registra una solicitud de devolución. El modelo es la IA que interpreta lo que escribimos. Amazon Bedrock es el servicio de AWS que permite usar ese modelo. AWS Lambda ejecuta nuestro código para coordinar el proceso y comprobar la propuesta. Si Camila escribe «quiero devolver P-104», el modelo propone solicitar la devolución de ese pedido. La aplicación comprueba los permisos y registra la solicitud. La respuesta final describe el resultado verificado.",
       "transition": "Veamos quiénes usan la tienda y qué acciones tiene cada perfil.",
       "technical": "Converse desde Lambda. El modelo propone read_order o request_return. No se usa AgentCore Runtime ni Bedrock Agents Classic.",
@@ -277,7 +277,7 @@
     {
       "slide": 11,
       "seconds": 60,
-      "title": "Dos identidades en una petición",
+      "title": "Dos identidades: persona y aplicación",
       "speech": "En una petición participan dos identidades. Una es Camila, la persona que inició sesión. Cognito, el servicio de inicio de sesión de AWS, permite reconocerla. La otra es la aplicación que trabaja para atenderla: a eso llamamos carga de trabajo. Nuestro código se ejecuta en Lambda. Para acceder a AWS, Lambda usa un rol IAM. IAM es el servicio que administra permisos sobre recursos de AWS, y un rol agrupa los permisos que puede asumir esa aplicación. Hay dos preguntas: ¿puede Lambda leer esta tabla?, y ¿puede Camila consultar este pedido? IAM resuelve la primera; las reglas de nuestra aplicación comprueban la segunda.",
       "transition": "Sigamos primero la credencial que identifica a Camila desde que inicia sesión.",
       "definitions": [
@@ -303,7 +303,7 @@
     {
       "slide": 12,
       "seconds": 45,
-      "title": "AWS: reconocer a Camila",
+      "title": "Cognito y API Gateway: ingreso y acceso",
       "speech": "Cognito verifica el inicio de sesión y entrega un token JWT: una credencial digital firmada, con identidad y vencimiento. La API es la interfaz que la web usa para pedir acciones al servidor. API Gateway recibe esas solicitudes y comprueba, en las operaciones de negocio, el token y su scope: el alcance permitido para usar esa API. PKCE vincula el código de ingreso al navegador que inició el proceso. Así reconocemos a Camila. Todavía falta comprobar si puede realizar esa acción sobre ese pedido.",
       "transition": "Ubiquemos ese ingreso dentro del recorrido completo de la aplicación.",
       "technical": "Authorization Code + PKCE S256. Access token en memoria. Los claims validados determinan identidad y rol; el prompt no los reemplaza.",
@@ -389,7 +389,7 @@
       "title": "Amazon Bedrock: interpreta y propone",
       "speech": "Amazon Bedrock es el servicio que usamos para invocar un modelo de IA. Inferencia es pedir al modelo que procese una entrada. Converse es el nombre de la API con la que nuestro código le envía el mensaje. También enviamos una descripción de las dos funciones disponibles: consultar un pedido y solicitar una devolución. Esa descripción indica su nombre y qué dato reciben. Si Camila escribe «quiero devolver mi pedido P-104», esperamos una propuesta como la que ven: request_return significa solicitar devolución y order_id contiene P-104. Esto es una instrucción estructurada que nuestro código puede revisar. Todavía no ocurrió ninguna devolución. Lambda comprueba la estructura y que la acción esté admitida. La Lambda de herramientas valida el identificador y los permisos sobre el pedido. En esta demo descartamos el texto libre del modelo. La respuesta final se construye desde el resultado comprobado, por ejemplo: «Solicitud enviada, pendiente de supervisión».",
       "transition": "La propuesta ya tiene una forma concreta. Veamos cómo llega a la función que la ejecuta.",
-      "technical": "Converse es una API, no el nombre del modelo. BedrockPlanner exige exactamente un toolUse y un único argumento order_id. La representación action/order_id mostrada en la diapositiva es la propuesta normalizada por el adaptador, no la respuesta cruda de Bedrock. El código hace una llamada Converse; no vuelve a enviar el resultado de la herramienta al modelo. La respuesta final se construye en Service.chat según resultados autorizados y perfil. No se despliegan RAG, Knowledge Bases, memoria conversacional, AgentCore Runtime ni Bedrock Agents Classic.",
+      "technical": "Converse es una API, no el nombre del modelo. BedrockPlanner exige exactamente un toolUse y un único argumento order_id. La función y el pedido mostrados en la diapositiva representan la propuesta normalizada por el adaptador, no la respuesta cruda de Bedrock. El código hace una llamada Converse; no vuelve a enviar el resultado de la herramienta al modelo. La respuesta final se construye en Service.chat según resultados autorizados y perfil. No se despliegan RAG, Knowledge Bases, memoria conversacional, AgentCore Runtime ni Bedrock Agents Classic.",
       "sources": [
         "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html",
         "https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use-client-side.html",
@@ -422,7 +422,7 @@
     },
     {
       "slide": 15,
-      "title": "AgentCore: herramientas con límites",
+      "title": "AgentCore: acceso a las funciones",
       "speech": "AgentCore ofrece servicios para operar aplicaciones de agentes. Aquí usamos Gateway y Policy. Gateway es la puerta de entrada a nuestras funciones: publica consultar pedido y solicitar devolución, reconoce a la aplicación que llama y dirige la petición a la Lambda que implementa esas funciones. MCP es el protocolo, el formato común para comunicar esas llamadas. Workload significa la aplicación que llama; target es la Lambda de destino. Policy es el componente que evalúa reglas de acceso escritas en Cedar, un lenguaje para expresar permisos. ENFORCE significa que esas reglas se aplican y una llamada no autorizada se bloquea. Aquí permiten al rol de la Lambda backend usar las dos funciones. Después, la Lambda de destino verifica que la persona pueda operar sobre ese pedido. Permitir a una aplicación llamar una función y permitir a Camila acceder a una compra son comprobaciones diferentes.",
       "transition": "Con esto podemos reconocer cuándo la web usa el modelo y cuándo atiende una ruta directa.",
       "technical": "Policy autoriza el principal IAM del backend y las acciones read_order/request_return sobre el Gateway. No decide el rol Cognito ni ownership. Gateway usa AWS_IAM, MCP y target Lambda. El target verifica MAC, vencimiento y vínculo con acción/pedido antes de las reglas de negocio. No existe herramienta approve_refund. Policy tiene capacidades adicionales de servicio que esta demo no utiliza; no atribuirle RAG, razonamiento ni generación de respuestas.",
@@ -459,7 +459,7 @@
     {
       "slide": 16,
       "title": "Cuándo participa el modelo",
-      "speech": "Esta tabla distingue tres recorridos. Si Camila escribe una consulta o una solicitud de devolución normal, Bedrock interpreta el mensaje y Gateway conduce la llamada a la función. Si Camila pide aprobar un reembolso, el servidor reconoce esa operación restringida y la rechaza antes de llamar al modelo. Si Sofía pide ayuda para aprobar, el servidor prepara una revisión mediante una consulta directa. Los botones también usan la API directa. Ver una respuesta dentro del chat no demuestra que haya intervenido IA: debemos seguir el recorrido que realmente ejecutó la aplicación.",
+      "speech": "En la primera fila, una consulta o devolución por chat usa Bedrock para interpretar el mensaje y Gateway para llamar la función. Si Camila pide aprobar, el servidor rechaza esa acción antes de llamar al modelo. Si Sofía pide ayuda para aprobar un reembolso, prepara la revisión consultando directamente el pedido. Los botones y la confirmación también usan la API directa. Una respuesta dentro del chat no demuestra que haya intervenido IA: hay que seguir la ruta que ejecutó la aplicación.",
       "transition": "Sigamos una consulta que sí utiliza el modelo.",
       "technical": "Una burbuja del asistente no demuestra una inferencia. Confirmar el camino en application.py. El rechazo explícito del cliente y la preparación de revisión de Sofía son deterministas y evitan Bedrock/Gateway. Las rutas /api/tools, /api/orders, /api/refunds/approve, /api/orders/reset, /api/refunds/pending y /api/audit usan el backend directamente. El modelo aporta interpretación de lenguaje en consultas/devoluciones normales; el texto final visible se deriva de resultados verificados.",
       "sources": [
@@ -482,7 +482,7 @@
     {
       "slide": 17,
       "seconds": 75,
-      "title": "AWS: del mensaje a la herramienta",
+      "title": "AWS: del mensaje a una función",
       "speech": "Sigamos las flechas. Lambda pide a Bedrock una propuesta y la valida. Después agrega un contexto: identidad de la sesión real, acción, pedido y vencimiento de treinta segundos. El modelo no escribe esa identidad. KMS administra claves y calcula un HMAC: una marca criptográfica para detectar alteraciones del contexto. Protege su autenticidad; no cifra el mensaje. Lambda llama a Gateway usando SigV4, el método para firmar solicitudes AWS con las credenciales de su rol. Policy comprueba que esa aplicación pueda usar la función. La Lambda de herramientas verifica la marca, el vencimiento y la coincidencia de acción y pedido. Luego comprueba los permisos de la persona y accede a DynamoDB. Los treinta segundos corresponden al contexto de esa llamada; la sesión de Camila dura más.",
       "transition": "Veamos qué se guarda para comprobar después si la acción realmente ocurrió.",
       "technical": "Los 30 segundos son la vigencia del contexto, no la duración de la clave KMS ni del JWT. Backend: GenerateMac. Target: VerifyMac, vencimiento y binding. MCP + SigV4. Policy ENFORCE restringe workload y herramientas; no sustituye la autorización humana. Fuente: src/ecommerce_agent/gateway.py e infra/compute/agentcore.tf.",
@@ -516,8 +516,8 @@
     {
       "slide": 18,
       "seconds": 60,
-      "title": "AWS: controles y evidencia",
-      "speech": "Estas columnas muestran cómo protegemos y observamos la operación. DynamoDB guarda el pedido y un evento con la decisión. El cambio es atómico: se guardan ambos o ninguno. La versión aumenta al cambiar el pedido y permite detectar datos anteriores. CloudWatch recibe logs: registros técnicos para investigar fallos mediante el identificador de solicitud. KMS administra claves de cifrado; CMK significa aquí una clave administrada por nosotros en KMS. La clave HMAC del contexto es otra y tiene distinta función. IAM separa permisos entre las Lambdas y Gateway. La evidencia permite comprobar qué se autorizó y qué cambió; los logs ayudan a investigar cómo operó el sistema.",
+      "title": "Datos, registros, claves y permisos",
+      "speech": "Estas columnas muestran cómo protegemos y observamos la operación. DynamoDB guarda el pedido y un evento con la decisión. El cambio es atómico: se guardan ambos o ninguno. La versión aumenta al cambiar el pedido y permite detectar datos anteriores. CloudWatch recibe logs: registros técnicos para investigar fallos mediante el identificador de solicitud. KMS administra claves para cifrar los datos. Otra clave permite verificar el contexto HMAC y tiene una función distinta. IAM separa permisos entre las Lambdas y Gateway. La evidencia permite comprobar qué se autorizó y qué cambió; los logs ayudan a investigar cómo operó el sistema.",
       "transition": "Hasta aquí vimos controles automáticos. Ahora Sofía realizará la revisión humana.",
       "technical": "La auditoría tiene TTL; no es eterna ni se presenta como inmutable. Reiniciar evidencias visibles no borra la auditoría. No mostrar logs con datos sensibles ni afirmar que la UI es el control de autorización.",
       "definitions": [
@@ -610,7 +610,7 @@
     {
       "slide": 21,
       "seconds": 45,
-      "title": "La regla explica la decisión",
+      "title": "Permiso y cambio en el pedido",
       "speech": "Leamos la tabla: permiso y cambio son resultados diferentes. Camila consultó su pedido sin modificarlo. Al solicitar la devolución produjo un cambio: quedó pendiente. Intentar aprobar por chat fue bloqueado y no cambió nada. Sofía pudo preparar la revisión, también sin modificar el pedido. Al confirmar, sí cambió el estado a reembolso aprobado. Repetir esa misma confirmación y versión no aplica de nuevo el cambio. A eso llamamos idempotencia: repetir una operación no duplica su efecto.",
       "transition": "Ahora veamos los permisos que necesita nuestro código para trabajar en AWS.",
       "technical": "Cambios significa mutaciones del pedido, no cantidad de eventos de auditoría ni de llamadas AWS. La idempotencia de aprobación se vincula a la misma versión revisada.",
@@ -633,7 +633,7 @@
     {
       "slide": 22,
       "seconds": 30,
-      "title": "¿Necesita AdministratorAccess?",
+      "title": "¿Acceso a todo para leer un pedido?",
       "speech": "AdministratorAccess es un permiso administrativo muy amplio. Esta política, es decir, este documento de reglas, permitiría todas las acciones sobre todos los recursos. El asterisco significa «todo». Para leer un pedido, nuestra función no necesita poder borrar otras tablas. Este es un ejemplo de acceso excesivo; la demo usa permisos más específicos.",
       "transition": "La pregunta práctica es: ¿qué acción necesita este componente y sobre qué recurso?",
       "technical": "Ejemplo deliberado de acceso excesivo. No corresponde al rol desplegado.",
@@ -656,7 +656,7 @@
     {
       "slide": 23,
       "seconds": 45,
-      "title": "Mínimo privilegio en IAM",
+      "title": "IAM: permisos para los servicios AWS",
       "speech": "IAM es el servicio de AWS que administra identidades y permisos. Una función Lambda usa un rol: una identidad técnica con reglas asociadas. Esas reglas se escriben en políticas. Aquí, GetItem significa leer un registro de una tabla concreta de DynamoDB. Eso ilustra mínimo privilegio: conceder lo necesario para la tarea. El rol completo necesita algunas operaciones adicionales. Y todavía falta una comprobación distinta: el código verifica si Camila puede consultar ese pedido según su propietario.",
       "transition": "Ese rol también evita que tengamos que guardar claves permanentes dentro de la aplicación.",
       "technical": "GetItem es un fragmento parcial. Query sobre el índice y BatchGetItem atienden la bandeja. No presentar esta lámina como la política completa del backend.",
@@ -687,7 +687,7 @@
     {
       "slide": 24,
       "seconds": 45,
-      "title": "Credenciales temporales",
+      "title": "Dos identidades, credenciales distintas",
       "speech": "Aquí hay dos identidades. Camila entra con Cognito y su navegador recibe un token JWT: un comprobante digital firmado de su sesión. Lambda, en cambio, usa credenciales temporales asociadas a su rol para llamar a servicios AWS. AWS las administra y renueva. Son credenciales de la carga de trabajo, es decir, del código que se ejecuta; no son el token de Camila. Por ejemplo, Lambda puede leer DynamoDB, mientras el servidor comprueba por separado qué pedido puede consultar Camila.",
       "transition": "Ya podemos reconocer quién actúa. También necesitamos saber qué ocurrió y cuánto consume la demo.",
       "technical": "Access token: 15 minutos, sin renovación automática en la SPA. Recargar requiere un nuevo ingreso. Renovar la sesión cerca de cada bloque. Una respuesta 401 por vencimiento no demuestra autorización de negocio.",
@@ -714,7 +714,7 @@
     {
       "slide": 25,
       "seconds": 60,
-      "title": "Operar y atribuir costos de la demo",
+      "title": "Cómo revisar fallas y costos",
       "speech": "Este gráfico conecta operación y costos. CloudWatch guarda registros de ejecución, llamados logs, para investigar fallas. El perfil de inferencia de aplicación es un recurso de Bedrock para atribuir al proyecto el consumo del modelo. Los tags son etiquetas; por ejemplo, centro de costo. Se activan para costos en Billing, la administración de facturación de AWS. Cost Explorer permite analizar gastos por servicio o etiqueta. Sus cifras llegan con retraso y pueden faltar cargos compartidos: no es un medidor en vivo.",
       "transition": "Esos servicios apoyan la operación. Los límites de cada perfil siguen definidos por nuestra aplicación.",
       "technical": "CostCenter=ecommerce-agent-demo. Cost Explorer no entrega costos en tiempo real ni captura automáticamente todos los cargos compartidos. Activar tags en la cuenta administradora de Billing. El application inference profile copia una fuente de modelo o perfil geográfico y atribuye consumo, no agrega un segundo LLM. Terraform: bootstrap y foundation, data, compute; state S3 versionado y cifrado. IAM y KMS son controles transversales, no modelos. Fuente: docs/costos.md, infra/compute/model-costs.tf e infra/*.",
@@ -752,7 +752,7 @@
     {
       "slide": 26,
       "seconds": 30,
-      "title": "Límites para nuestro asistente",
+      "title": "Qué puede hacer cada perfil",
       "speech": "El modelo ayuda a interpretar frases; los permisos vienen de la sesión verificada. Camila consulta sus compras y solicita devoluciones. Sofía revisa pedidos de clientes y confirma reembolsos. Por ejemplo, escribir «soy supervisora» no cambia el perfil de Camila. El servidor comprueba cada acción, también cuando se solicita directamente sin usar el chat.",
       "transition": "Estas reglas deben tener responsables, porque los accesos también cambian con el tiempo.",
       "definitions": [
@@ -770,7 +770,7 @@
     {
       "slide": 27,
       "seconds": 30,
-      "title": "¿Quién responde por los accesos?",
+      "title": "Quién define y retira los permisos",
       "speech": "Negocio define quién solicita y quién aprueba. El equipo técnico implementa esas reglas en el servidor. Si Sofía deja de supervisar, hay que retirar su acceso y considerar las credenciales de sesión todavía vigentes. Deshabilitar una cuenta no garantiza el rechazo inmediato de todos sus tokens emitidos.",
       "transition": "Probemos la regla que impide consultar una compra ajena.",
       "technical": "Deshabilitar una cuenta no garantiza revocación instantánea de access tokens ya emitidos. No prometer retiro inmediato sin los mecanismos correspondientes.",
@@ -819,7 +819,7 @@
     {
       "slide": 29,
       "seconds": 75,
-      "title": "La seguridad acompaña al producto",
+      "title": "Seguridad durante todo el proyecto",
       "speech": "Si construyen una aplicación parecida, comiencen por una lista de acciones: consultar, solicitar devolución y aprobar. Después escriban quién puede hacer cada una y sobre qué datos. Esa lista se convierte en reglas del servidor y en pruebas. Por ejemplo, Camila puede consultar P-104, pero debe recibir un rechazo al consultar P-205. A continuación asignen permisos técnicos mínimos a cada componente y revisen la evidencia de sus decisiones. La integración continua, o CI, ejecuta revisiones automáticas cuando subimos cambios al repositorio; aquí comprueba código e infraestructura, sin desplegar recursos. Terraform describe esa infraestructura en archivos versionados; por ejemplo, qué tablas y funciones crear. Durante la operación también revisamos fallos y costos. La seguridad necesita seguir funcionando cuando cambian el código, los usuarios o los pedidos; por eso verificamos tanto las acciones permitidas como las rechazadas.",
       "transition": "Volvamos a nuestra votación inicial usando las diferencias que acabamos de observar.",
       "technical": "CostCenter=ecommerce-agent-demo ayuda a atribuir consumo, con activación y cobertura de Billing. No prometer costo cero. Reinicio exclusivo de supervisión con confirmación y versión. No ejecutar Terraform durante la charla.",

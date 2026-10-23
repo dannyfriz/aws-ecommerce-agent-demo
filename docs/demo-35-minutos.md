@@ -28,32 +28,32 @@ La [fuente de la oratoria](presentaciones/oratoria-nivel-200.json) permite mante
 | 00:00–00:30 | 1 | ¿Quién le dio permisos a tu IA? | PPT |
 | 00:30–01:30 | 2 | Tu cuenta. Un asistente | PPT |
 | 01:30–02:00 | 3 | Danny Friz | PPT |
-| 02:00–03:00 | 4 | Agente de soporte posventa | PPT |
+| 02:00–03:00 | 4 | Herramientas: funciones programadas | PPT |
 | 03:00–04:00 | 5 | ¿Quién puede hacer qué? | PPT |
 | 04:00–04:30 | 6 | Tienda Clara ya está en AWS | Web: Camila |
 | 04:30–06:30 | 7 | Reto 1: consulta propia | Web: Camila |
 | 06:30–09:00 | 8 | Camila solicita la devolución | Web: Camila |
 | 09:00–10:30 | 9 | Reto 2: aprobar como cliente | Web: Camila |
 | 10:30–12:00 | 10 | Reto 3: «soy gerente» | Web: Camila |
-| 12:00–13:00 | 11 | Dos identidades en una petición | PPT |
-| 13:00–13:45 | 12 | AWS: reconocer a Camila | PPT |
+| 12:00–13:00 | 11 | Dos identidades: persona y aplicación | PPT |
+| 13:00–13:45 | 12 | Cognito y API Gateway: ingreso y acceso | PPT |
 | 13:45–15:45 | 13 | Arquitectura completa de la demo | PPT |
 | 15:45–17:15 | 14 | Amazon Bedrock: interpreta y propone | PPT |
-| 17:15–18:30 | 15 | AgentCore: herramientas con límites | PPT |
+| 17:15–18:30 | 15 | AgentCore: acceso a las funciones | PPT |
 | 18:30–19:15 | 16 | Cuándo participa el modelo | PPT |
-| 19:15–20:30 | 17 | AWS: del mensaje a la herramienta | PPT |
-| 20:30–21:30 | 18 | AWS: controles y evidencia | PPT |
+| 19:15–20:30 | 17 | AWS: del mensaje a una función | PPT |
+| 20:30–21:30 | 18 | Datos, registros, claves y permisos | PPT |
 | 21:30–23:30 | 19 | Sofía prepara la revisión en el chat | Web: Sofía |
 | 23:30–25:30 | 20 | Sofía revisa antes de confirmar | Web: Sofía |
-| 25:30–26:15 | 21 | La regla explica la decisión | PPT |
-| 26:15–26:45 | 22 | ¿Necesita AdministratorAccess? | PPT |
-| 26:45–27:30 | 23 | Mínimo privilegio en IAM | PPT |
-| 27:30–28:15 | 24 | Credenciales temporales | PPT |
-| 28:15–29:15 | 25 | Operar y atribuir costos de la demo | PPT |
-| 29:15–29:45 | 26 | Límites para nuestro asistente | PPT |
-| 29:45–30:15 | 27 | ¿Quién responde por los accesos? | PPT |
+| 25:30–26:15 | 21 | Permiso y cambio en el pedido | PPT |
+| 26:15–26:45 | 22 | ¿Acceso a todo para leer un pedido? | PPT |
+| 26:45–27:30 | 23 | IAM: permisos para los servicios AWS | PPT |
+| 27:30–28:15 | 24 | Dos identidades, credenciales distintas | PPT |
+| 28:15–29:15 | 25 | Cómo revisar fallas y costos | PPT |
+| 29:15–29:45 | 26 | Qué puede hacer cada perfil | PPT |
+| 29:45–30:15 | 27 | Quién define y retira los permisos | PPT |
 | 30:15–32:30 | 28 | Tu turno: pedido ajeno | Web: Camila |
-| 32:30–33:45 | 29 | La seguridad acompaña al producto | PPT |
+| 32:30–33:45 | 29 | Seguridad durante todo el proyecto | PPT |
 | 33:45–35:00 | 30 | Gracias por su atención | PPT |
 
 ## Recorrido de los servicios de IA
@@ -111,7 +111,7 @@ Soy Danny Friz, arquitecto cloud de seguridad en SII Group y docente en Duoc UC.
 - **Arquitectura:** Organización de los componentes de una aplicación y de las conexiones entre ellos.
 - **Control de acceso:** Comprobación que decide quién puede realizar una acción sobre un recurso.
 
-### 4. Agente de soporte posventa (02:00–03:00)
+### 4. Herramientas: funciones programadas (02:00–03:00)
 
 **Oratoria para decir:**
 
@@ -289,7 +289,7 @@ Mensaje para copiar:
 
 **Apoyo técnico (consulta opcional):** El mensaje no cambia los claims de Cognito. El rechazo explícito ocurre antes del modelo. No narrarlo como una decisión de la IA ni como una autorización de Policy por usuario.
 
-### 11. Dos identidades en una petición (12:00–13:00)
+### 11. Dos identidades: persona y aplicación (12:00–13:00)
 
 **Oratoria para decir:**
 
@@ -304,7 +304,7 @@ En una petición participan dos identidades. Una es Camila, la persona que inici
 - **Rol IAM:** Identidad con permisos que asume una aplicación para acceder a AWS.
 - **Autorización de negocio:** Reglas de la aplicación, como permitir a Camila consultar solo pedidos propios.
 
-### 12. AWS: reconocer a Camila (13:00–13:45)
+### 12. Cognito y API Gateway: ingreso y acceso (13:00–13:45)
 
 **Oratoria para decir:**
 
@@ -364,11 +364,11 @@ Amazon Bedrock es el servicio que usamos para invocar un modelo de IA. Inferenci
 - **Propuesta estructurada:** Acción y datos en un formato revisable por código; no demuestra que se haya ejecutado.
 - **Inferencia:** Invocación en la que el modelo procesa la entrada y produce una salida.
 
-**Apoyo técnico (consulta opcional):** Converse es una API, no el nombre del modelo. BedrockPlanner exige exactamente un toolUse y un único argumento order_id. La representación action/order_id mostrada en la diapositiva es la propuesta normalizada por el adaptador, no la respuesta cruda de Bedrock. El código hace una llamada Converse; no vuelve a enviar el resultado de la herramienta al modelo. La respuesta final se construye en Service.chat según resultados autorizados y perfil. No se despliegan RAG, Knowledge Bases, memoria conversacional, AgentCore Runtime ni Bedrock Agents Classic.
+**Apoyo técnico (consulta opcional):** Converse es una API, no el nombre del modelo. BedrockPlanner exige exactamente un toolUse y un único argumento order_id. La función y el pedido mostrados en la diapositiva representan la propuesta normalizada por el adaptador, no la respuesta cruda de Bedrock. El código hace una llamada Converse; no vuelve a enviar el resultado de la herramienta al modelo. La respuesta final se construye en Service.chat según resultados autorizados y perfil. No se despliegan RAG, Knowledge Bases, memoria conversacional, AgentCore Runtime ni Bedrock Agents Classic.
 
 **Fuentes:** https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html; https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use-client-side.html; src/ecommerce_agent/adapters.py; src/ecommerce_agent/application.py
 
-### 15. AgentCore: herramientas con límites (17:15–18:30)
+### 15. AgentCore: acceso a las funciones (17:15–18:30)
 
 **Oratoria para decir:**
 
@@ -392,7 +392,7 @@ AgentCore ofrece servicios para operar aplicaciones de agentes. Aquí usamos Gat
 
 **Oratoria para decir:**
 
-Esta tabla distingue tres recorridos. Si Camila escribe una consulta o una solicitud de devolución normal, Bedrock interpreta el mensaje y Gateway conduce la llamada a la función. Si Camila pide aprobar un reembolso, el servidor reconoce esa operación restringida y la rechaza antes de llamar al modelo. Si Sofía pide ayuda para aprobar, el servidor prepara una revisión mediante una consulta directa. Los botones también usan la API directa. Ver una respuesta dentro del chat no demuestra que haya intervenido IA: debemos seguir el recorrido que realmente ejecutó la aplicación.
+En la primera fila, una consulta o devolución por chat usa Bedrock para interpretar el mensaje y Gateway para llamar la función. Si Camila pide aprobar, el servidor rechaza esa acción antes de llamar al modelo. Si Sofía pide ayuda para aprobar un reembolso, prepara la revisión consultando directamente el pedido. Los botones y la confirmación también usan la API directa. Una respuesta dentro del chat no demuestra que haya intervenido IA: hay que seguir la ruta que ejecutó la aplicación.
 
 **Transición:** Sigamos una consulta que sí utiliza el modelo.
 
@@ -405,7 +405,7 @@ Esta tabla distingue tres recorridos. Si Camila escribe una consulta o una solic
 
 **Fuentes:** src/ecommerce_agent/application.py; src/ecommerce_agent/handler.py; web/app.js
 
-### 17. AWS: del mensaje a la herramienta (19:15–20:30)
+### 17. AWS: del mensaje a una función (19:15–20:30)
 
 **Oratoria para decir:**
 
@@ -425,11 +425,11 @@ Sigamos las flechas. Lambda pide a Bedrock una propuesta y la valida. Después a
 
 **Fuentes:** https://docs.aws.amazon.com/kms/latest/developerguide/hmac.html; src/ecommerce_agent/gateway.py
 
-### 18. AWS: controles y evidencia (20:30–21:30)
+### 18. Datos, registros, claves y permisos (20:30–21:30)
 
 **Oratoria para decir:**
 
-Estas columnas muestran cómo protegemos y observamos la operación. DynamoDB guarda el pedido y un evento con la decisión. El cambio es atómico: se guardan ambos o ninguno. La versión aumenta al cambiar el pedido y permite detectar datos anteriores. CloudWatch recibe logs: registros técnicos para investigar fallos mediante el identificador de solicitud. KMS administra claves de cifrado; CMK significa aquí una clave administrada por nosotros en KMS. La clave HMAC del contexto es otra y tiene distinta función. IAM separa permisos entre las Lambdas y Gateway. La evidencia permite comprobar qué se autorizó y qué cambió; los logs ayudan a investigar cómo operó el sistema.
+Estas columnas muestran cómo protegemos y observamos la operación. DynamoDB guarda el pedido y un evento con la decisión. El cambio es atómico: se guardan ambos o ninguno. La versión aumenta al cambiar el pedido y permite detectar datos anteriores. CloudWatch recibe logs: registros técnicos para investigar fallos mediante el identificador de solicitud. KMS administra claves para cifrar los datos. Otra clave permite verificar el contexto HMAC y tiene una función distinta. IAM separa permisos entre las Lambdas y Gateway. La evidencia permite comprobar qué se autorizó y qué cambió; los logs ayudan a investigar cómo operó el sistema.
 
 **Transición:** Hasta aquí vimos controles automáticos. Ahora Sofía realizará la revisión humana.
 
@@ -499,7 +499,7 @@ Pulsar «Revisar reembolso». Mostrar el diálogo y detenerse para leer los dato
 - **Control de concurrencia:** Comprobación de que el pedido conserva la versión revisada antes de aceptar la aprobación.
 - **Reembolso de la demo:** Cambio educativo de estado; no hay transferencia de dinero ni procesador de pagos.
 
-### 21. La regla explica la decisión (25:30–26:15)
+### 21. Permiso y cambio en el pedido (25:30–26:15)
 
 **Oratoria para decir:**
 
@@ -515,7 +515,7 @@ Leamos la tabla: permiso y cambio son resultados diferentes. Camila consultó su
 
 **Apoyo técnico (consulta opcional):** Cambios significa mutaciones del pedido, no cantidad de eventos de auditoría ni de llamadas AWS. La idempotencia de aprobación se vincula a la misma versión revisada.
 
-### 22. ¿Necesita AdministratorAccess? (26:15–26:45)
+### 22. ¿Acceso a todo para leer un pedido? (26:15–26:45)
 
 **Oratoria para decir:**
 
@@ -531,7 +531,7 @@ AdministratorAccess es un permiso administrativo muy amplio. Esta política, es 
 
 **Apoyo técnico (consulta opcional):** Ejemplo deliberado de acceso excesivo. No corresponde al rol desplegado.
 
-### 23. Mínimo privilegio en IAM (26:45–27:30)
+### 23. IAM: permisos para los servicios AWS (26:45–27:30)
 
 **Oratoria para decir:**
 
@@ -549,7 +549,7 @@ IAM es el servicio de AWS que administra identidades y permisos. Una función La
 
 **Apoyo técnico (consulta opcional):** GetItem es un fragmento parcial. Query sobre el índice y BatchGetItem atienden la bandeja. No presentar esta lámina como la política completa del backend.
 
-### 24. Credenciales temporales (27:30–28:15)
+### 24. Dos identidades, credenciales distintas (27:30–28:15)
 
 **Oratoria para decir:**
 
@@ -566,7 +566,7 @@ Aquí hay dos identidades. Camila entra con Cognito y su navegador recibe un tok
 
 **Apoyo técnico (consulta opcional):** Access token: 15 minutos, sin renovación automática en la SPA. Recargar requiere un nuevo ingreso. Renovar la sesión cerca de cada bloque. Una respuesta 401 por vencimiento no demuestra autorización de negocio.
 
-### 25. Operar y atribuir costos de la demo (28:15–29:15)
+### 25. Cómo revisar fallas y costos (28:15–29:15)
 
 **Oratoria para decir:**
 
@@ -587,7 +587,7 @@ Este gráfico conecta operación y costos. CloudWatch guarda registros de ejecuc
 
 **Fuentes:** docs/costos.md; infra/compute/model-costs.tf
 
-### 26. Límites para nuestro asistente (29:15–29:45)
+### 26. Qué puede hacer cada perfil (29:15–29:45)
 
 **Oratoria para decir:**
 
@@ -600,7 +600,7 @@ El modelo ayuda a interpretar frases; los permisos vienen de la sesión verifica
 - **Límite del modelo:** El modelo propone una consulta o una solicitud de devolución. No cambia identidades, concede roles ni aprueba reembolsos.
 - **Perfil de aplicación:** Conjunto de capacidades de una persona dentro de Tienda Clara: Cliente o Supervisión. El servidor lo obtiene de la sesión validada.
 
-### 27. ¿Quién responde por los accesos? (29:45–30:15)
+### 27. Quién define y retira los permisos (29:45–30:15)
 
 **Oratoria para decir:**
 
@@ -643,7 +643,7 @@ Mensaje para copiar:
 - **Rechazo seguro:** Respuesta que niega el acceso sin revelar contenido, existencia ni propietario de un pedido ajeno. La respuesta es equivalente para un pedido inaccesible y uno inexistente.
 - **Fallo técnico y rechazo de autorización:** Un fallo de conexión, de modelo o de sesión vencida no demuestra el control de propiedad. Para esta actividad debe observarse el rechazo de acceso emitido por el servidor.
 
-### 29. La seguridad acompaña al producto (32:30–33:45)
+### 29. Seguridad durante todo el proyecto (32:30–33:45)
 
 **Oratoria para decir:**
 

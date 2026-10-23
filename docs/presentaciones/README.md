@@ -4,6 +4,8 @@
 
 La versión final incluye oratoria explícita para estudiantes de nivel 200 en cada diapositiva. Define los servicios, las siglas y su función en la demo, con ejemplos de Camila y Sofía. Las notas y el [guion](../demo-35-minutos.md) se generan desde una [fuente común](oratoria-nivel-200.json); los conceptos de apoyo quedan separados del texto para decir en voz alta.
 
+Las diapositivas presentan esas aclaraciones en pantalla: herramienta como función programada, servicios AWS con su función, identidad de la persona separada de la aplicación y cuatro escenas que muestran cuándo se invoca el modelo. Los diagramas, íconos y tablas conservan su edición en PowerPoint.
+
 Para actualizar las notas y generar una copia revisable sin modificar las diapositivas: `python scripts/sync_presentation_notes.py --output .build/presentacion-revisada.pptx`. Abrirla y revisar sus notas antes de reemplazar la presentación final.
 
 Versión final de 30 diapositivas para la charla de Danny Friz del 24 de octubre de 2026. Conserva la identidad visual del evento. Las notas incluyen oratoria, transiciones, tiempos y acciones de la demo, sincronizados con el [guion de 35 minutos](../demo-35-minutos.md). Esta entrega incluye únicamente esa versión.

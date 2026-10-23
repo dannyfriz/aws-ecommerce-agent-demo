@@ -8,6 +8,8 @@ El cliente consulta un pedido propio y solicita una devolución. El agente inter
 
 La oratoria está adaptada a estudiantes de nivel 200: cada diapositiva explica los conceptos que introduce, su función y su uso concreto en la demo. El [texto fuente](docs/presentaciones/oratoria-nivel-200.json) mantiene sincronizados el guion y las notas del expositor.
 
+El contenido visible también usa definiciones breves: «herramienta» se presenta como una función programada, los servicios muestran su propósito y la tabla distingue las acciones que usan el modelo de las operaciones directas del servidor.
+
 ## Estado y alcance
 
 Este repositorio entrega código e infraestructura declarativa para desplegar una demo en una cuenta AWS de laboratorio. **Descargarlo no despliega recursos AWS.** Los datos son ficticios. No constituye una plataforma productiva de comercio, pagos o cumplimiento normativo.
