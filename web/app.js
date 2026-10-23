@@ -176,6 +176,7 @@ $('response-detail').addEventListener('change',()=>perform(async()=>{
 },()=>{$('response-detail').value=responseDetail;}));
 $('policy-example').addEventListener('click',()=>{$('message').value='¿Quién puede solicitar una devolución y quién aprueba el reembolso?';$('message').focus();});
 $('expired-return-example').addEventListener('click',()=>{const example=profilePresentation(currentUser).expiredReturnExample;if(example){$('message').value=example[1];$('message').focus();}});
+$('profile-limit-example').addEventListener('click',()=>{const example=profilePresentation(currentUser).limitExample;if(example){$('message').value=example.message;$('message').focus();}});
 document.querySelectorAll('[data-message]').forEach(button=>button.addEventListener('click',()=>{$('message').value=button.dataset.message; $('message').focus();}));
 $('chat-form').addEventListener('submit',event=>{event.preventDefault(); const message=$('message').value.trim(); if(!message)return; perform(async()=>{addMessage('Tú',message); $('message').value=''; const result=await request('/api/chat',conversation.payload(message)); conversation.accept(result.data); const reply=addMessage('Asistente',result.data.message); for(const source of result.data.sources || [])reply.append(element('small',`Fuente: ${source.title}`)); if(currentUser?.role==='supervisor' && result.data.review_order_id){const id=result.data.review_order_id; const button=element('button','Revisar reembolso'); button.type='button'; button.addEventListener('click',()=>perform(()=>reviewRefund(id))); reply.append(button);} for(const item of result.data.results || []){ if(item.order){renderOrder(item.order);orderSynchronized();} evidence('Resultado de la herramienta',{request_id:result.request_id,data:item}); } if(!result.data.results?.length)evidence('Respuesta del asistente',result); status(result.data.clarification?'El asistente necesita una aclaración; responde en el chat.':result.data.memory_warning?'Respuesta confirmada; el contexto no se guardó.':'Solicitud procesada. Revisa la evidencia.');},error=>{conversation.reset(); addMessage('Asistente',chatErrorReply(error,currentUser?.role)+' Inicié una nueva conversación. Para continuar, indica nuevamente el número del pedido.');});});
 $('order-form').addEventListener('submit',event=>{event.preventDefault(); perform(async()=>{const id=$('order-id').value.trim(); const result=await request(`/api/orders/${encodeURIComponent(id)}`); renderOrder(result.data.order); orderSynchronized(); evidence('Consulta de pedido',result); status('Pedido consultado.');});});
@@ -250,6 +251,11 @@ try {
     });
     $('expired-return-example').hidden=!presentation.expiredReturnExample;
     if(presentation.expiredReturnExample)$('expired-return-example').textContent=presentation.expiredReturnExample[0];
+    $('profile-limit').hidden=!presentation.limitExample;
+    if(presentation.limitExample){
+      $('profile-limit-example').textContent=presentation.limitExample.label;
+      $('profile-limit-explanation').textContent=presentation.limitExample.explanation;
+    }
     $('order-id').value=presentation.order || (currentUser.role==='supervisor'?'P-104':'');
     addMessage('Asistente',presentation.greeting);
     $('workspace').hidden=false; $('login').hidden=true; $('logout').hidden=false;

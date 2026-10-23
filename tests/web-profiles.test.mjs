@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {profilePresentation,orderPurchasePresentation} from '../web/profiles.js';
 import {chatErrorReply,errorExplanation,decisionEvidence} from '../web/evidence.js';
+import {createConversation} from '../web/conversation.js';
 
 for(const [username,order] of [['camila','P-104'],['diego','P-205']]){
   const view=profilePresentation({username,role:'customer'});
@@ -98,4 +99,53 @@ assert.equal(calls[0].body.order_id,'P-206');
 assert.deepEqual(Object.keys(calls[0].body).sort(),['action','order_id']);
 vm.runInContext("currentUser={username:'sofia',role:'supervisor'};renderOrder(currentOrder)",context);
 assert.equal($('return').disabled,true);
+
+// Cada prueba prepara un mensaje y muestra el rechazo recibido; la interfaz no decide la autorización.
+const scenarios=JSON.parse(readFileSync(new URL('../scripts/fixtures/agent-evaluation-cases.json',import.meta.url),'utf8')).cases;
+for(const [username,role,reason]of [
+  ['camila','customer','CHAT_APPROVAL_REQUIRES_REVIEW'],
+  ['diego','customer','RESOURCE_NOT_AUTHORIZED'],
+  ['sofia','supervisor','OWNER_REQUIRED']
+]){
+  const presentation=profilePresentation({username,role});
+  assert.equal(presentation.examples.length,3);
+  assert.ok(presentation.limitExample.explanation.startsWith('Resultado esperado:'));
+  const fixture=scenarios.flatMap(scenario=>scenario.steps).find(step=>step.actor===username && step.message===presentation.limitExample.message);
+  assert.ok(fixture,`Falta el escenario evaluable para ${username}`);
+  assert.equal(fixture.expect.reason,reason);
+  assert.equal(fixture.expect.mutated,false);
+  const nodes=new Map(),calls=[],messages=[],failures=[];
+  const $=id=>{if(!nodes.has(id))nodes.set(id,node('div'));return nodes.get(id);};
+  const conversation=createConversation(()=> '12345678-1234-4123-8123-123456789abc');
+  let running;
+  const view=vm.createContext({$,profilePresentation,currentUser:{username,role},conversation,
+    chatErrorReply,status(){},evidence(){},
+    addMessage:(speaker,text)=>{messages.push({speaker,text});return node('div');},
+    perform:(work,onFailure)=>{running=work().catch(error=>{if(onFailure)onFailure(error);failures.push(error);});return running;},
+    request:async(path,body)=>{calls.push({path,body});throw Object.assign(new Error('Rechazo verificado por el servidor'),{code:'ACCESS_DENIED',reason});}
+  });
+  vm.runInContext(source.split('\n').find(line=>line.startsWith("$('profile-limit-example').addEventListener")),view);
+  vm.runInContext(source.split('\n').find(line=>line.startsWith("$('chat-form').addEventListener")),view);
+  $('profile-limit-example').handlers.click();
+  assert.equal($('message').value,presentation.limitExample.message);
+  assert.equal($('message').focused,true);
+  assert.equal(calls.length,0);
+  assert.equal(messages.length,0);
+  $('chat-form').handlers.submit({preventDefault(){}});
+  await running;
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].path,'/api/chat');
+  assert.equal(calls[0].body.message,presentation.limitExample.message);
+  assert.deepEqual(Object.keys(calls[0].body).sort(),['message','session_id']);
+  assert.equal(failures[0].reason,reason);
+  assert.equal(messages[0].speaker,'Tú');
+  assert.equal(messages[1].speaker,'Asistente');
+  assert.ok(messages[1].text.startsWith(chatErrorReply({code:'ACCESS_DENIED',reason},role)));
+  assert.ok(!messages[1].text.includes('Reembolso autorizado'));
+}
+assert.equal(supervisor.examples[2][0],'Preparar revisión');
+const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
+assert.ok(html.includes('Devolución fuera de plazo · P-206'));
+assert.ok(html.includes('Prueba de límites de tu perfil'));
+assert.ok(!html.includes('Devoluci?n'));
 console.log('Perfiles: Camila, Diego, supervisión, ejemplos, rechazos y errores coherentes.');
