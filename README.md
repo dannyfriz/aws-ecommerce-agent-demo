@@ -4,11 +4,11 @@ Demo de un asistente de soporte posventa para la charla **«¿Quién le dio perm
 
 El cliente consulta un pedido propio y solicita una devolución. El agente interpreta la solicitud y propone herramientas; el backend verifica identidad, propiedad y reglas de negocio. Una persona con rol supervisor autoriza el reembolso desde un flujo independiente del chat. No se mueven fondos.
 
-[Presentación con arquitectura completa y servicios de IA](docs/presentaciones/Danny_Friz_SCD_2026_arquitectura_IA.pptx), con 30 diapositivas, pausas para mostrar la web y notas sincronizadas con el [guion de 35 minutos](docs/demo-35-minutos.md). Explica el papel de Bedrock Converse, AgentCore Gateway y Policy, y separa inferencia, controles de negocio y aprobación humana. Ver [material de la charla](docs/presentaciones/README.md).
+[Presentación: identidad y acceso para agentes en AWS](docs/presentaciones/Danny_Friz_SCD_2026_arquitectura_IA.pptx), con 22 diapositivas principales, tres pausas para demostrar permisos y ocho anexos técnicos. El recorrido conecta identidad humana y de la aplicación, IAM, AgentCore, autorización externa al modelo y evidencia. Ver el [guion de 35 minutos más preguntas](docs/demo-35-minutos.md) y la [alineación con la charla](docs/foco-charla.md).
 
-La oratoria está adaptada a estudiantes de nivel 200: cada diapositiva explica los conceptos que introduce, su función y su uso concreto en la demo. El [texto fuente](docs/presentaciones/oratoria-nivel-200.json) mantiene sincronizados el guion y las notas del expositor. Las notas contienen solo la oratoria, con tono natural; los tiempos y las instrucciones de demo quedan en el guion separado.
+La oratoria mantiene un tono natural para estudiantes de nivel 200 con nociones básicas de IAM. Las notas contienen solo el discurso. El [texto fuente](docs/presentaciones/oratoria-nivel-200.json) sincroniza la PPT y el guion separado, donde quedan los tiempos, las instrucciones de demo y las referencias.
 
-El contenido visible también usa definiciones breves: «herramienta» se presenta como una función programada, los servicios muestran su propósito y la tabla distingue las acciones que usan el modelo de las operaciones directas del servidor.
+La demo principal compara la consulta de Camila a P-104 con el rechazo de P-205 y comprueba que escribir «soy gerente» no cambia sus permisos. El cierre ofrece criterios para asignar responsables, revisar permisos y retirar accesos. La arquitectura completa y el detalle del reembolso quedan disponibles como apoyo para preguntas.
 
 ## Estado y alcance
 

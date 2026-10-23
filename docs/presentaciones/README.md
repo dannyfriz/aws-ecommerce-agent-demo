@@ -1,21 +1,23 @@
 # Presentación de Student Community Day Chile 2026
 
-[Descargar presentación con arquitectura completa y servicios de IA](Danny_Friz_SCD_2026_arquitectura_IA.pptx)
+[Descargar presentación: identidad y acceso para agentes en AWS](Danny_Friz_SCD_2026_arquitectura_IA.pptx)
 
-La versión final incluye oratoria explícita para estudiantes de nivel 200 en cada diapositiva. Define los servicios, las siglas y su función en la demo, con ejemplos de Camila y Sofía. Las notas y el [guion](../demo-35-minutos.md) se generan desde una [fuente común](oratoria-nivel-200.json); las notas contienen únicamente el discurso para decir en voz alta, con tono natural y transiciones integradas. Los conceptos de apoyo, tiempos e instrucciones de demo quedan en el guion separado.
+El recorrido responde a la propuesta «¿Quién le dio permisos a tu IA?»: quién solicita una acción, qué identidad usa el programa, quién autoriza y qué evidencia permite explicar la decisión. Incluye criterios para asignar responsables, revisar permisos y retirar accesos. La [alineación con la charla](../foco-charla.md) relaciona cada compromiso con sus diapositivas.
 
-Las diapositivas presentan esas aclaraciones en pantalla: herramienta como función programada, servicios AWS con su función, identidad de la persona separada de la aplicación y cuatro escenas que muestran cuándo se invoca el modelo. Los diagramas, íconos y tablas conservan su edición en PowerPoint.
+La PPT conserva 30 diapositivas: 22 principales y ocho anexos ocultos en el avance normal. La pauta es de 35 minutos de exposición y 10 de preguntas. Los anexos pueden abrirse desde el navegador de diapositivas para responder una consulta, sin incorporarlos al recorrido principal.
 
-Para actualizar las notas y generar una copia revisable sin modificar las diapositivas: `python scripts/sync_presentation_notes.py --output .build/presentacion-revisada.pptx`. Abrirla y revisar sus notas antes de reemplazar la presentación final.
+Las tres pausas de demo están en las diapositivas 8, 10 y 12: consultar P-104 como Camila, intentar consultar P-205 desde la misma cuenta y pedir una aprobación escribiendo «soy gerente». Se contrastan la respuesta y la evidencia de cada petición. La consulta ajena verifica propiedad tras el recorrido modelo/Gateway; la aprobación explícita como cliente se rechaza antes del modelo.
 
-Versión final de 30 diapositivas para la charla de Danny Friz del 24 de octubre de 2026. Conserva la identidad visual del evento. Las notas incluyen solo la oratoria, sincronizada con el [guion de 35 minutos](../demo-35-minutos.md). Los tiempos, las acciones de demo y las referencias se consultan en ese guion. Esta entrega incluye únicamente esa versión.
+Las diapositivas 5 y 15 distinguen identidad y credenciales de la persona frente al rol de la aplicación. La 7 muestra el recorrido esencial de autorización; 13–14 explican IAM y AgentCore. Las diapositivas 17–20 desarrollan responsables, revisión, retiro y una guía para el primer proyecto.
 
-Las diapositivas 6–10 indican cuándo mostrar la web con Camila; 19–20 cubren la revisión y confirmación con Sofía; 28 demuestra el rechazo de una consulta ajena como Camila. Cada pausa define acción, resultado esperado y regreso a la PPT. El avance es manual. Iniciar cada sesión cerca de su bloque: el token dura 15 minutos y no se renueva automáticamente. No proyectar contraseñas.
+La arquitectura completa sigue en la diapositiva 23. El contexto firmado, datos y logs, costos, rutas con y sin modelo, confirmación humana, propuesta de Bedrock e idempotencia están en los anexos 24–30. Conservan los íconos AWS y los objetos editables.
 
-La diapositiva 13 muestra el despliegue completo con dos recorridos: chat con IA y API directa para botones/revisión humana. Incluye frontend, identidad, dos Lambdas, Bedrock, AgentCore, DynamoDB y servicios de apoyo. Las diapositivas 14–15 explican Bedrock Converse, Gateway y Policy; la 16 identifica qué escenas invocan realmente el modelo. La 17 conserva el detalle del contexto HMAC de 30 segundos. La 25 trata operación y atribución de consumo del modelo.
+Las notas contienen únicamente oratoria fluida para estudiantes de nivel 200. Los tiempos, pasos de demo, conceptos de apoyo y fuentes quedan en el [guion separado](../demo-35-minutos.md). Ambos se generan desde una [fuente común](oratoria-nivel-200.json).
 
-Bedrock interpreta el lenguaje y propone una herramienta. El backend valida la propuesta y construye el texto final desde resultados autorizados. Gateway publica las herramientas y autentica al workload; Policy evalúa Cedar en ENFORCE para el rol backend y las dos acciones permitidas. La Lambda target verifica a la persona, el propietario y las reglas. La preparación explícita de revisión de Sofía y los botones no invocan el modelo. No se presentan RAG, Knowledge Bases, AgentCore Runtime ni Bedrock Agents Classic como desplegados.
+Para generar una copia revisable de las notas: `python scripts/sync_presentation_notes.py --output .build/presentacion-revisada.pptx`. El script conserva las diapositivas y la condición de anexos ocultos. Revisar la copia antes de reemplazar la PPT final.
 
-El contenido refleja la demo AWS desplegada: Cognito, API Gateway, Bedrock Converse, dos Lambdas, AgentCore Gateway y Policy ENFORCE, contexto KMS HMAC, DynamoDB y controles operativos. Distingue la preparación de una revisión desde el chat de la aprobación humana con confirmación y versión. Incluye acceso a la demo y guion de supervisión, sin credenciales ni identificadores personales de sesión.
+La demo ejecuta controles de autorización. La asignación de responsables, las revisiones periódicas y el retiro de accesos se presentan como prácticas propuestas para operar el proyecto, sin atribuirles automatizaciones que no están implementadas. La aprobación es educativa y no mueve dinero.
 
-La presentación combina diagramas de arquitectura con pausas para mostrar el comportamiento en vivo. Como respaldo del recorrido se pueden preparar capturas de la sesión de Camila con P-104, la solicitud pendiente, el rechazo al pedir aprobación como cliente, la bandeja de Sofía y el diálogo de revisión. Mantener cerrado el identificador de identidad y excluir contraseñas, tokens y parámetros OAuth; describir siempre el estado que efectivamente muestra cada imagen.
+El respaldo usa diagramas y resultados esperados. No incluye capturas nuevas ni una grabación de la ejecución en vivo. Si la demo falla, el guion explica cómo continuar sin confundir un error técnico con una decisión de autorización.
+
+Esta entrega pública incluye únicamente la versión final.
