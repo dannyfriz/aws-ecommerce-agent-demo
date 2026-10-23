@@ -6,7 +6,7 @@ El cliente consulta un pedido propio y solicita una devolución. El agente inter
 
 [Presentación con arquitectura completa y servicios de IA](docs/presentaciones/Danny_Friz_SCD_2026_arquitectura_IA.pptx), con 30 diapositivas, pausas para mostrar la web y notas sincronizadas con el [guion de 35 minutos](docs/demo-35-minutos.md). Explica el papel de Bedrock Converse, AgentCore Gateway y Policy, y separa inferencia, controles de negocio y aprobación humana. Ver [material de la charla](docs/presentaciones/README.md).
 
-La oratoria está adaptada a estudiantes de nivel 200: cada diapositiva explica los conceptos que introduce, su función y su uso concreto en la demo. El [texto fuente](docs/presentaciones/oratoria-nivel-200.json) mantiene sincronizados el guion y las notas del expositor.
+La oratoria está adaptada a estudiantes de nivel 200: cada diapositiva explica los conceptos que introduce, su función y su uso concreto en la demo. El [texto fuente](docs/presentaciones/oratoria-nivel-200.json) mantiene sincronizados el guion y las notas del expositor. Las notas contienen solo la oratoria, con tono natural; los tiempos y las instrucciones de demo quedan en el guion separado.
 
 El contenido visible también usa definiciones breves: «herramienta» se presenta como una función programada, los servicios muestran su propósito y la tabla distingue las acciones que usan el modelo de las operaciones directas del servidor.
 

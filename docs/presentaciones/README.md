@@ -2,13 +2,13 @@
 
 [Descargar presentación con arquitectura completa y servicios de IA](Danny_Friz_SCD_2026_arquitectura_IA.pptx)
 
-La versión final incluye oratoria explícita para estudiantes de nivel 200 en cada diapositiva. Define los servicios, las siglas y su función en la demo, con ejemplos de Camila y Sofía. Las notas y el [guion](../demo-35-minutos.md) se generan desde una [fuente común](oratoria-nivel-200.json); los conceptos de apoyo quedan separados del texto para decir en voz alta.
+La versión final incluye oratoria explícita para estudiantes de nivel 200 en cada diapositiva. Define los servicios, las siglas y su función en la demo, con ejemplos de Camila y Sofía. Las notas y el [guion](../demo-35-minutos.md) se generan desde una [fuente común](oratoria-nivel-200.json); las notas contienen únicamente el discurso para decir en voz alta, con tono natural y transiciones integradas. Los conceptos de apoyo, tiempos e instrucciones de demo quedan en el guion separado.
 
 Las diapositivas presentan esas aclaraciones en pantalla: herramienta como función programada, servicios AWS con su función, identidad de la persona separada de la aplicación y cuatro escenas que muestran cuándo se invoca el modelo. Los diagramas, íconos y tablas conservan su edición en PowerPoint.
 
 Para actualizar las notas y generar una copia revisable sin modificar las diapositivas: `python scripts/sync_presentation_notes.py --output .build/presentacion-revisada.pptx`. Abrirla y revisar sus notas antes de reemplazar la presentación final.
 
-Versión final de 30 diapositivas para la charla de Danny Friz del 24 de octubre de 2026. Conserva la identidad visual del evento. Las notas incluyen oratoria, transiciones, tiempos y acciones de la demo, sincronizados con el [guion de 35 minutos](../demo-35-minutos.md). Esta entrega incluye únicamente esa versión.
+Versión final de 30 diapositivas para la charla de Danny Friz del 24 de octubre de 2026. Conserva la identidad visual del evento. Las notas incluyen solo la oratoria, sincronizada con el [guion de 35 minutos](../demo-35-minutos.md). Los tiempos, las acciones de demo y las referencias se consultan en ese guion. Esta entrega incluye únicamente esa versión.
 
 Las diapositivas 6–10 indican cuándo mostrar la web con Camila; 19–20 cubren la revisión y confirmación con Sofía; 28 demuestra el rechazo de una consulta ajena como Camila. Cada pausa define acción, resultado esperado y regreso a la PPT. El avance es manual. Iniciar cada sesión cerca de su bloque: el token dura 15 minutos y no se renueva automáticamente. No proyectar contraseñas.
 

@@ -39,20 +39,8 @@ def load_plan(source):
 
 
 def notes_text(item):
-    lines = [f"TIEMPO: {item['start']} a {item['end']} (incluye explicación, participación y demo).", '',
-             'ORATORIA PARA DECIR', item['speech'], '', 'TRANSICIÓN', item['transition']]
-    if demo := item.get('demo'):
-        lines += ['', 'PAUSA PARA DEMO EN VIVO', f"Sesión: {demo['profile']}.", f"Acción: {demo['action']}"]
-        if demo.get('message'):
-            lines.append(f"Mensaje exacto: {demo['message']}")
-        lines += [f"Resultado esperado: {demo['expected']}", f"Regreso: {demo['return']}", f"Si falla: {demo['backup']}"]
-    lines += ['', 'CONCEPTOS DE APOYO PARA EL EXPOSITOR']
-    lines += [f"{entry['term']}: {entry['explanation']}" for entry in item['definitions']]
-    if item.get('technical'):
-        lines += ['', 'APOYO TÉCNICO (CONSULTA OPCIONAL)', item['technical']]
-    if item.get('sources'):
-        lines += ['', 'FUENTES', *item['sources']]
-    return '\n'.join(lines)
+    """Deja en PowerPoint únicamente el discurso listo para decir en voz alta."""
+    return item['speech'].strip()
 
 
 def replace_notes_body(content, text):
@@ -111,7 +99,7 @@ def render_guide(document, plan):
         '## Cómo usar la oratoria', '',
         'Leer o adaptar **Oratoria para decir**. Las definiciones de los conceptos nuevos ya están dentro de ese discurso. **Conceptos de apoyo** y **Apoyo técnico** son referencias para preguntas, no un bloque adicional que se deba leer completo. Las indicaciones de demo describen qué hacer en la web y qué resultado comprobar.', '',
         'Se da más tiempo a la arquitectura y a los controles de ejecución, conservando treinta y cinco minutos y ocho pausas para la demo. Los tiempos son una pauta de ensayo: contemplar pausas para señalar el diagrama y observar la web.', '',
-        'La [fuente de la oratoria](presentaciones/oratoria-nivel-200.json) permite mantener el guion y las notas sincronizados mediante `scripts/sync_presentation_notes.py`.', '',
+        'Las notas de PowerPoint contienen únicamente la oratoria, en un tono natural para decirla en voz alta. Los tiempos, las instrucciones de demo, las transiciones sugeridas y las referencias quedan en este guion. La [fuente de la oratoria](presentaciones/oratoria-nivel-200.json) mantiene ambos archivos sincronizados mediante `scripts/sync_presentation_notes.py`.', '',
         '## Preparación antes de proyectar', '',
         '- Usar perfiles independientes del navegador, o una ventana normal y otra incógnita. Dos ventanas incógnitas del mismo navegador comparten sesión.',
         '- Verificar usuario y perfil al cambiar de ventana. El enlace no selecciona una cuenta automáticamente.',
