@@ -1,9 +1,23 @@
 """Entidades y reglas independientes de AWS."""
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+import re
 from uuid import uuid4
 
-POLICY_VERSION = "2026-10-17.1"
+POLICY_VERSION = "2026-10-23.1"
+REFUND_WINDOW_DAYS = 90
+
+
+def utc_today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+def refund_policy_error(code: str) -> "AppError":
+    messages = {
+        "REFUND_WINDOW_EXPIRED": "Este pedido supera los 90 días calendario desde la compra y no admite devolución ni reembolso según la política ficticia de esta demo. El pedido no se modificó.",
+        "PURCHASE_DATE_UNAVAILABLE": "No se puede comprobar el plazo de 90 días porque la fecha de compra no está disponible o no es válida. Solicita a supervisión revisar el dato. El pedido no se modificó.",
+    }
+    return AppError(code, messages[code], 422, code)
 
 
 class AppError(Exception):
@@ -62,11 +76,32 @@ class Order:
     version: int = 1
     approved_from_version: int = -1
     customer_name: str = ""
+    purchased_on: str = ""
 
-    def public(self) -> dict:
+    def purchase_date(self) -> date | None:
+        if not isinstance(self.purchased_on, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", self.purchased_on):
+            return None
+        try:
+            return date.fromisoformat(self.purchased_on)
+        except ValueError:
+            return None
+
+    def purchase_age_days(self, today: date | None = None) -> int | None:
+        purchased = self.purchase_date()
+        if purchased is None:
+            return None
+        age = ((today if today is not None else utc_today()) - purchased).days
+        return age if age >= 0 else None
+
+    def public(self, today: date | None = None) -> dict:
         value = asdict(self)
         value.pop("owner_sub")
         value.pop("approved_from_version")
+        value["purchased_on"] = self.purchased_on if self.purchase_date() is not None else ""
+        # La elegibilidad usa la fecha persistida, nunca una fecha enviada en el chat.
+        age = self.purchase_age_days(today)
+        value["purchase_age_days"] = age
+        value["refund_eligible"] = age is not None and age <= REFUND_WINDOW_DAYS
         return value
 
 

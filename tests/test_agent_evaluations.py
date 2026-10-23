@@ -36,6 +36,16 @@ class AgentEvaluationTests(unittest.TestCase):
         self.assertFalse(checks["order_id"])
         self.assertEqual(report["metrics"]["authorization"]["rate"], 0)
 
+    def test_expired_order_is_readable_but_business_rule_rejects_return(self):
+        cases = [case for case in evaluation.load_cases()
+                 if case["case_id"] in {"diego_expired_order_can_be_read_but_not_returned",
+                                         "expired_order_does_not_reveal_details_to_other_customer"}]
+        self.assertEqual(len(cases), 2)
+        report = evaluation.run_evaluations(cases)
+        self.assertTrue(report["passed"])
+        self.assertEqual([step["status"] for step in report["results"][0]["steps"]], ["ok", "denied"])
+        self.assertEqual(report["results"][0]["steps"][1]["expectation"]["reason"], "REFUND_WINDOW_EXPIRED")
+
     def test_unavailable_model_cannot_be_reported_as_success_or_expose_details(self):
         planner = Mock()
         planner.plan.side_effect = RuntimeError("entrada-privada-no-publicable")

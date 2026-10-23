@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {orderPurchasePresentation} from '../web/profiles.js';
 
 // Ejecutar los manejadores reales permite comprobar que el chat nunca envía una aprobación.
 const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
@@ -8,10 +9,11 @@ const nodes=new Map();
 function node(){return {children:[],handlers:{},value:'Aprueba el reembolso P-104',append(...items){this.children.push(...items);},replaceChildren(){this.children=[];},addEventListener(type,handler){this.handlers[type]=handler;},showModal(){this.open=true;},close(){this.open=false;},scrollIntoView(){}};}
 const $=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);};
 const calls=[];
-let latest={order_id:'P-104',customer_name:'Camila',return_status:'REQUESTED',version:7};
+let latest={order_id:'P-104',customer_name:'Camila',return_status:'REQUESTED',version:7,purchased_on:'2026-09-23',purchase_age_days:30,refund_eligible:true};
 let running;
 const messages=[];
 const context=vm.createContext({$,Object,encodeURIComponent,
+  orderPurchasePresentation,
   conversation:{payload:message=>({message,session_id:'12345678-1234-4123-8123-123456789abc'}),accept:()=>{}},
   element:()=>node(),money:()=>'$1.000',status:()=>{},evidence:()=>{},orderSynchronized:()=>{},
   chatErrorReply:error=>error.message,

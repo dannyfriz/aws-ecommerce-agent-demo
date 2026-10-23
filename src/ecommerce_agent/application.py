@@ -2,8 +2,9 @@
 import re
 import unicodedata
 from dataclasses import replace
+from datetime import datetime, timezone
 from uuid import uuid4
-from .domain import Actor, AppError, audit_event, denied
+from .domain import Actor, AppError, REFUND_WINDOW_DAYS, audit_event, denied, refund_policy_error, utc_today
 from .ports import Repository, Planner, ToolExecutor
 
 
@@ -21,11 +22,31 @@ def requests_chat_approval(message: str) -> bool:
 class Service:
     def __init__(self, repo: Repository, planner: Planner | None, ttl_days: int = 30,
                  tool_executor: ToolExecutor | None = None, conversation_memory=None,
-                 preference_memory=None, content_guard=None, knowledge=None):
+                 preference_memory=None, content_guard=None, knowledge=None, clock=None):
         self.repo, self.planner, self.ttl_days = repo, planner, ttl_days
         self.tool_executor = tool_executor
         self.conversation_memory = conversation_memory
         self.preference_memory, self.content_guard, self.knowledge = preference_memory, content_guard, knowledge
+        self.clock = clock or utc_today
+
+    def today(self):
+        current = self.clock()
+        return current.astimezone(timezone.utc).date() if isinstance(current, datetime) else current
+
+    def check_refund_window(self, actor, action, order, request_id, today):
+        age = order.purchase_age_days(today)
+        reason = "PURCHASE_DATE_UNAVAILABLE" if age is None else "REFUND_WINDOW_EXPIRED" if age > REFUND_WINDOW_DAYS else None
+        if reason:
+            self.repo.record(self.event(actor, action, order.order_id, "DENY", reason, False, request_id))
+            raise refund_policy_error(reason)
+
+    @staticmethod
+    def refund_guidance(order):
+        if order.get("refund_eligible") is True:
+            return ""
+        if order.get("purchase_age_days") is not None:
+            return "La compra supera los 90 días calendario: la política ficticia de la demo no permite solicitar ni aprobar su reembolso."
+        return "La fecha de compra no está disponible o no es válida; no se permite solicitar ni aprobar el reembolso hasta verificarla."
 
     def event(self, actor, action, order_id, decision, reason, executed, request_id):
         return audit_event(actor, action, order_id, decision, reason, executed, request_id, self.ttl_days)
@@ -47,15 +68,18 @@ class Service:
         order = self.repo.get(order_id)
         if order is None or (actor.role != "supervisor" and order.owner_sub != actor.sub):
             return self.reject(actor, action, order_id, "RESOURCE_NOT_AUTHORIZED", request_id)
+        today = self.today()
         if action == "read_order":
             self.repo.record(self.event(actor, action, order_id, "ALLOW", "AUTHORIZED", True, request_id))
-            return {"order": order.public(), "decision": "ALLOW"}
+            return {"order": order.public(today), "decision": "ALLOW"}
         if action == "request_return":
             if order.owner_sub != actor.sub:
                 return self.reject(actor, action, order_id, "OWNER_REQUIRED", request_id)
+            if order.return_status != "REFUNDED":
+                self.check_refund_window(actor, action, order, request_id, today)
             if order.return_status != "NONE":
                 self.repo.record(self.event(actor, action, order_id, "ALLOW", "ALREADY_REQUESTED", False, request_id))
-                return {"order": order.public(), "decision": "ALLOW", "executed": False}
+                return {"order": order.public(today), "decision": "ALLOW", "executed": False}
             after = replace(order, return_status="REQUESTED", version=order.version + 1)
         else:
             if confirm is not True or type(expected_version) is not int or expected_version < 1:
@@ -63,10 +87,11 @@ class Service:
                 raise AppError("INVALID_CONFIRMATION", "Confirma el pedido y su versión antes de aprobar.")
             if order.return_status == "REFUNDED" and order.approved_from_version == expected_version:
                 self.repo.record(self.event(actor, action, order_id, "ALLOW", "ALREADY_APPROVED", False, request_id))
-                return {"order": order.public(), "decision": "ALLOW", "executed": False}
+                return {"order": order.public(today), "decision": "ALLOW", "executed": False}
             if order.version != expected_version or order.return_status != "REQUESTED":
                 self.repo.record(self.event(actor, action, order_id, "DENY", "STALE_OR_INVALID_STATE", False, request_id))
                 raise AppError("CONFLICT", "El pedido cambió. Revisa su estado y vuelve a confirmar.", 409)
+            self.check_refund_window(actor, action, order, request_id, today)
             after = replace(order, return_status="REFUNDED", version=order.version + 1,
                             approved_from_version=expected_version)
         event = self.event(actor, action, order_id, "ALLOW", "AUTHORIZED", True, request_id)
@@ -76,7 +101,7 @@ class Service:
             if exc.status == 409:
                 self.repo.record(self.event(actor, action, order_id, "DENY", "CONCURRENT_CHANGE", False, request_id))
             raise
-        return {"order": after.public(), "decision": "ALLOW", "executed": True}
+        return {"order": after.public(today), "decision": "ALLOW", "executed": True}
 
     def reset_order(self, actor: Actor, order_id: str, request_id: str,
                     expected_version=None, confirm=False) -> dict:
@@ -94,11 +119,11 @@ class Service:
             raise AppError("CONFLICT", "El pedido cambió. Consúltalo y confirma nuevamente el reinicio.", 409)
         if before.return_status == "NONE":
             self.repo.record(self.event(actor, "reset_order", order_id, "ALLOW", "ALREADY_RESET", False, request_id))
-            return {"order": before.public(), "decision": "ALLOW", "executed": False, "action": "reset_order"}
+            return {"order": before.public(self.today()), "decision": "ALLOW", "executed": False, "action": "reset_order"}
         # Incrementar la versión invalida aprobaciones antiguas; nunca se borra la auditoría.
         after = replace(before, return_status="NONE", approved_from_version=-1, version=before.version + 1)
         self.repo.mutate(before, after, self.event(actor, "reset_order", order_id, "ALLOW", "LAB_RESET", True, request_id))
-        return {"order": after.public(), "decision": "ALLOW", "executed": True, "action": "reset_order"}
+        return {"order": after.public(self.today()), "decision": "ALLOW", "executed": True, "action": "reset_order"}
 
     def chat(self, actor: Actor, message: str, request_id: str, session_id=None) -> dict:
         if not isinstance(message, str) or not message.strip() or len(message) > 2000:
@@ -146,6 +171,8 @@ class Service:
                          if actor.role == "supervisor" else f"Tu pedido {order['order_id']}")
             states = {"NONE": "sin devolución solicitada", "REQUESTED": "solicitud enviada, en espera de supervisión", "REFUNDED": "reembolso aprobado en la demo; no se transfieren fondos"}
             result["message"] = f"{reference}: {order['status']}; {states[order['return_status']]}."
+            if order["return_status"] != "REFUNDED" and self.refund_guidance(order):
+                result["message"] += " " + self.refund_guidance(order)
             if result.get("review_order_id"):
                 result["message"] += " Usa «Revisar reembolso» para revisar y confirmar; el chat no aprueba."
         return result
@@ -161,9 +188,10 @@ class Service:
                 return self.clarify(actor, "MISSING_ORDER" if not identifiers else "AMBIGUOUS_ORDER", None, request_id)
             result = self.execute(actor, "read_order", identifiers.pop().upper(), request_id)
             order = result["order"]
-            pending = order["return_status"] == "REQUESTED"
+            pending = order["return_status"] == "REQUESTED" and order.get("refund_eligible") is True
             reference = f"el pedido {order['order_id']} del cliente {order.get('customer_name') or 'sin nombre registrado'}"
-            explanation = ("La solicitud está pendiente. Usa «Revisar reembolso» para comprobar los datos y confirmar tu decisión. Todavía no se aprobó el reembolso."
+            explanation = (self.refund_guidance(order) if order["return_status"] != "REFUNDED" and self.refund_guidance(order) else
+                           "La solicitud está pendiente. Usa «Revisar reembolso» para comprobar los datos y confirmar tu decisión. Todavía no se aprobó el reembolso."
                            if pending else "El reembolso ya está aprobado en la demo; no realicé cambios."
                            if order["return_status"] == "REFUNDED" else
                            "No hay una solicitud de devolución pendiente. Primero debe enviarla el cliente propietario.")
@@ -219,7 +247,11 @@ class Service:
             states = {"NONE": "sin devolución solicitada", "REQUESTED": "solicitud enviada, en espera de supervisión",
                       "REFUNDED": "reembolso aprobado en la demo"}
             message = f"Consulté {reference}. Estado: {order['status']}. Devolución: {states.get(order['return_status'], order['return_status'])}."
-            if actor.role == "supervisor":
+            if order["return_status"] != "REFUNDED" and self.refund_guidance(order):
+                message += " " + self.refund_guidance(order)
+                if actor.role == "supervisor":
+                    message += " Estás consultando como supervisión; el pedido pertenece al cliente."
+            elif actor.role == "supervisor":
                 message += " Estás consultando como supervisión; el pedido pertenece al cliente."
                 if order["return_status"] == "REQUESTED":
                     message += " Puedes revisar la solicitud con «Revisar reembolso» y confirmar allí tu decisión."
@@ -276,7 +308,8 @@ class Service:
             raise AppError('INVALID_INPUT', 'El cursor de solicitudes no es válido. Vuelve a la primera página.')
         orders, next_after = self.repo.pending(after=after, limit=25)
         self.repo.record(self.event(actor, 'pending:read', '', 'ALLOW', 'AUTHORIZED', True, request_id))
-        return {'orders':[order.public() for order in orders], 'next_after':next_after}
+        today = self.today()
+        return {'orders':[order.public(today) for order in orders], 'next_after':next_after}
 
     def audit(self, actor: Actor, request_id: str):
         if actor.role != "supervisor":

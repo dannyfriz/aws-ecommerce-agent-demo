@@ -2,7 +2,7 @@ import {configuration,completeSignIn,signIn,signOut} from './auth.js';
 import {request,checkApiHealth} from './api.js';
 import {decisionEvidence,errorExplanation,chatErrorReply} from './evidence.js';
 import {createOrderSync} from './order-sync.js';
-import {profilePresentation} from './profiles.js';
+import {profilePresentation,orderPurchasePresentation} from './profiles.js';
 import {createPendingQueue} from './pending.js';
 import {createConversation} from './conversation.js';
 
@@ -137,7 +137,10 @@ function renderOrder(order,{synchronized=true}={}) {
   const list=element('dl','');
   const labels={NONE:'Sin devolución',REQUESTED:'Solicitud enviada · En espera de supervisión',REFUNDED:'Reembolso aprobado'};
   for(const [label,value] of [['Pedido',order.order_id],['Cliente',order.customer_name || 'No registrado'],['Producto',order.product],['Monto',money(order)],['Estado',order.status],['Devolución',labels[order.return_status] || order.return_status],['Versión',order.version]]) list.append(element('dt',label),element('dd',value));
-  $('order').append(list);
+  const purchase=orderPurchasePresentation(order,currentUser?.role);
+  for(const [label,value] of purchase.rows)list.append(element('dt',label),element('dd',value));
+  const notice=element('p',purchase.notice);notice.className='refund-window';notice.dataset.state=purchase.state;
+  $('order').append(list,notice);
   $('return').disabled=busy || currentUser?.role!=='customer' || order.return_status!=='NONE';
   $('approve').disabled=busy || currentUser?.role!=='supervisor' || order.return_status!=='REQUESTED';
   $('reset-order').disabled=busy || currentUser?.role!=='supervisor' || order.return_status==='NONE';
@@ -172,6 +175,7 @@ $('response-detail').addEventListener('change',()=>perform(async()=>{
   status('Preferencia guardada para tus próximas sesiones.');
 },()=>{$('response-detail').value=responseDetail;}));
 $('policy-example').addEventListener('click',()=>{$('message').value='¿Quién puede solicitar una devolución y quién aprueba el reembolso?';$('message').focus();});
+$('expired-return-example').addEventListener('click',()=>{const example=profilePresentation(currentUser).expiredReturnExample;if(example){$('message').value=example[1];$('message').focus();}});
 document.querySelectorAll('[data-message]').forEach(button=>button.addEventListener('click',()=>{$('message').value=button.dataset.message; $('message').focus();}));
 $('chat-form').addEventListener('submit',event=>{event.preventDefault(); const message=$('message').value.trim(); if(!message)return; perform(async()=>{addMessage('Tú',message); $('message').value=''; const result=await request('/api/chat',conversation.payload(message)); conversation.accept(result.data); const reply=addMessage('Asistente',result.data.message); for(const source of result.data.sources || [])reply.append(element('small',`Fuente: ${source.title}`)); if(currentUser?.role==='supervisor' && result.data.review_order_id){const id=result.data.review_order_id; const button=element('button','Revisar reembolso'); button.type='button'; button.addEventListener('click',()=>perform(()=>reviewRefund(id))); reply.append(button);} for(const item of result.data.results || []){ if(item.order){renderOrder(item.order);orderSynchronized();} evidence('Resultado de la herramienta',{request_id:result.request_id,data:item}); } if(!result.data.results?.length)evidence('Respuesta del asistente',result); status(result.data.clarification?'El asistente necesita una aclaración; responde en el chat.':result.data.memory_warning?'Respuesta confirmada; el contexto no se guardó.':'Solicitud procesada. Revisa la evidencia.');},error=>{conversation.reset(); addMessage('Asistente',chatErrorReply(error,currentUser?.role)+' Inicié una nueva conversación. Para continuar, indica nuevamente el número del pedido.');});});
 $('order-form').addEventListener('submit',event=>{event.preventDefault(); perform(async()=>{const id=$('order-id').value.trim(); const result=await request(`/api/orders/${encodeURIComponent(id)}`); renderOrder(result.data.order); orderSynchronized(); evidence('Consulta de pedido',result); status('Pedido consultado.');});});
@@ -184,6 +188,7 @@ async function reviewRefund(orderId){
   approvalOrder=Object.freeze({...currentOrder});
   const list=$('approval-details'); list.replaceChildren();
   for(const [label,value]of [['Pedido',approvalOrder.order_id],['Cliente',approvalOrder.customer_name || 'Sin nombre registrado'],['Producto',approvalOrder.product],['Monto',money(approvalOrder)],['Versión revisada',approvalOrder.version]])list.append(element('dt',label),element('dd',value));
+  for(const [label,value]of orderPurchasePresentation(approvalOrder,'supervisor').rows)list.append(element('dt',label),element('dd',value));
   $('approval-dialog').showModal();
 }
 $('approve').addEventListener('click',()=>perform(async()=>{if(currentOrder)await reviewRefund(currentOrder.order_id);}));
@@ -243,6 +248,8 @@ try {
       button.textContent=presentation.examples[index][0];
       button.dataset.message=presentation.examples[index][1];
     });
+    $('expired-return-example').hidden=!presentation.expiredReturnExample;
+    if(presentation.expiredReturnExample)$('expired-return-example').textContent=presentation.expiredReturnExample[0];
     $('order-id').value=presentation.order || (currentUser.role==='supervisor'?'P-104':'');
     addMessage('Asistente',presentation.greeting);
     $('workspace').hidden=false; $('login').hidden=true; $('logout').hidden=false;

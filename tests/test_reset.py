@@ -1,5 +1,6 @@
 """Reinicio educativo con autorización, concurrencia y auditoría."""
 from dataclasses import replace
+from datetime import date
 import unittest
 from unittest.mock import Mock, patch
 from ecommerce_agent import handler
@@ -11,8 +12,11 @@ from test_application import event
 
 class ResetTests(unittest.TestCase):
     def setUp(self):
+        clock = patch("ecommerce_agent.application.utc_today", return_value=date(2026, 10, 23))
+        clock.start()
+        self.addCleanup(clock.stop)
         self.order = Order('P-104', 'camila', 'Producto', 39990,
-                           return_status='REFUNDED', version=3, approved_from_version=2, customer_name='Camila')
+                           return_status='REFUNDED', version=3, approved_from_version=2, customer_name='Camila', purchased_on='2026-10-01')
         self.repo = MemoryRepository([self.order])
         self.service = Service(self.repo, LocalPlanner())
         self.supervisor = Actor('sofia', 'supervisor')

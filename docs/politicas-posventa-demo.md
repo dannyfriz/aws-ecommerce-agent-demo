@@ -8,19 +8,23 @@ El cliente puede consultar únicamente los pedidos asociados a su cuenta autenti
 
 ## Solicitud de devolución
 
-Solo el cliente propietario puede solicitar la devolución de su pedido. La solicitud queda enviada y en espera de supervisión; enviarla no aprueba un reembolso. Repetir una solicitud ya registrada no crea otra devolución. Para conocer el estado actual de un pedido es necesario consultarlo en la aplicación.
+Solo el cliente propietario puede solicitar la devolución de su pedido y debe encontrarse dentro del plazo ficticio de 90 días desde la compra. La solicitud queda enviada y en espera de supervisión; enviarla no aprueba un reembolso. Repetir una solicitud ya registrada no crea otra devolución. Para conocer el estado actual de un pedido es necesario consultarlo en la aplicación.
 
 ## Revisión de reembolsos
 
-La aprobación requiere una persona con perfil de supervisor, una solicitud pendiente y una confirmación explícita sobre la versión vigente del pedido. El asistente puede ayudar a preparar la revisión; una conversación no aprueba reembolsos. La demo registra una aprobación educativa y no transfiere dinero ni integra un procesador de pagos.
+La aprobación requiere una persona con perfil de supervisor, una solicitud pendiente, una compra dentro del plazo ficticio de 90 días y una confirmación explícita sobre la versión vigente del pedido. Tener perfil de supervisor no permite omitir el plazo. El asistente puede ayudar a preparar la revisión; una conversación no aprueba reembolsos. La demo registra una aprobación educativa y no transfiere dinero ni integra un procesador de pagos.
 
 ## Reinicio de la actividad
 
-Solo el supervisor puede reiniciar el estado de un pedido para repetir el ejercicio, después de revisar y confirmar su versión. El reinicio conserva la auditoría. Los estudiantes con perfil de cliente deben solicitar ese reinicio a supervisión. Limpiar el chat o comenzar una conversación nueva no reinicia el pedido.
+Solo el supervisor puede reiniciar el estado de un pedido para repetir el ejercicio, después de revisar y confirmar su versión. El reinicio conserva la auditoría y la fecha original de compra; no vuelve elegible una compra que ya supera el plazo. Los estudiantes con perfil de cliente deben solicitar ese reinicio a supervisión. Limpiar el chat o comenzar una conversación nueva no reinicia el pedido.
 
 ## Plazos, montos y elegibilidad
 
-El laboratorio no define un plazo comercial o legal para devolver productos ni garantiza elegibilidad o aprobación. La política no permite prometer una fecha de pago, un monto diferente o condiciones de una tienda real. Si una pregunta requiere una condición no documentada, el asistente debe indicarlo y orientar a consultar al responsable de la actividad.
+La regla de este ejercicio permite solicitar una devolución y evaluar un reembolso hasta el día 90 desde la fecha de compra, inclusive. Desde el día 91 se rechazan ambas operaciones sin modificar el pedido. Los días se calculan comparando fechas de calendario en UTC; el día de compra es el día 0. La fecha proviene del pedido guardado en el servidor, nunca del mensaje ni del perfil declarado en el chat. Si la fecha falta, es inválida o está en el futuro, no se puede comprobar la elegibilidad y la operación se rechaza para revisión por el responsable de la actividad.
+
+La autorización por identidad y la elegibilidad por plazo son controles distintos y ambos deben cumplirse. Un cliente puede consultar una compra propia de más de 90 días aunque ya no pueda solicitar su devolución. El supervisor también puede consultarla, pero no aprobar un reembolso fuera del plazo. Una respuesta de políticas del asistente explica esta regla y no autoriza ni modifica pedidos.
+
+Los 90 días son una condición ficticia elegida para demostrar una regla de negocio externa al modelo. No representan plazos comerciales o legales de Chile ni garantizan la aprobación. La política no permite prometer una fecha de pago, un monto diferente o condiciones de una tienda real. Si una pregunta requiere una condición no documentada, el asistente debe indicarlo y orientar a consultar al responsable de la actividad.
 
 ## Fuentes e identidad
 

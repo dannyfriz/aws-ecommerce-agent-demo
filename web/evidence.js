@@ -9,6 +9,8 @@ const actions = {
   'audit:read':'Consulta de auditoría'
 };
 const reasons = {
+  REFUND_WINDOW_EXPIRED:'No aplica reembolso en este laboratorio: la compra supera los 90 días permitidos desde la fecha registrada. El pedido no se modificó. Es una regla de la demo.',
+  PURCHASE_DATE_UNAVAILABLE:'No se puede comprobar el plazo de reembolso porque falta una fecha de compra válida. El servidor bloqueó la operación y el pedido no se modificó. Debe revisarse el dato registrado.',
   GUARDRAIL_BLOCKED:'El filtro de contenido bloqueó la consulta. Reformúlala sin contraseñas, datos sensibles ni instrucciones para evadir controles. No se ejecutaron acciones sobre pedidos.',
   PREFERENCE_UPDATED:'Se guardó el nivel de detalle elegido. Tus permisos no cambiaron.',
   POLICY_INFORMATION_ONLY:'Se consultaron las políticas ficticias de la demo. Esta información no autoriza ni modifica pedidos.',
@@ -51,6 +53,8 @@ export function errorExplanation(error,role) {
 }
 
 export function chatErrorReply(error,role) {
+  if(error.reason==='REFUND_WINDOW_EXPIRED' || error.code==='REFUND_WINDOW_EXPIRED')return reasons.REFUND_WINDOW_EXPIRED+(role==='supervisor'?' El perfil de supervisión también debe respetar este plazo.':' Puedes consultar el pedido, pero no enviar una devolución fuera de plazo.');
+  if(error.reason==='PURCHASE_DATE_UNAVAILABLE' || error.code==='PURCHASE_DATE_UNAVAILABLE')return reasons.PURCHASE_DATE_UNAVAILABLE;
   if(role==='supervisor'){
     const replies={
       CHAT_APPROVAL_REQUIRES_REVIEW:'Tienes perfil de supervisión, pero la aprobación no se realiza por chat. Consulta el pedido del cliente y, si hay una solicitud pendiente, usa «Revisar reembolso» para revisar y confirmar tu decisión. No modifiqué el pedido.',
@@ -90,7 +94,9 @@ export function decisionEvidence(data, label, role) {
   if (data.decision === 'CLARIFY') {
     lines.push('Se pidió información adicional. No se consultó ni modificó ningún pedido.');
   } else if (data.decision === 'DENY') {
-    lines.push('Acceso rechazado: el servidor bloqueó la operación.');
+    lines.push(['REFUND_WINDOW_EXPIRED','PURCHASE_DATE_UNAVAILABLE'].includes(data.reason)
+      ?'Operación rechazada: el servidor aplicó una regla de negocio del laboratorio.'
+      :'Acceso rechazado: el servidor bloqueó la operación.');
   } else if (data.decision === 'ALLOW') {
     lines.push('Acceso permitido: el servidor autorizó la operación para esta cuenta.');
   }

@@ -1,5 +1,6 @@
 """Pruebas integradas de conversación: el contexto y las preferencias nunca autorizan pedidos."""
 from dataclasses import replace
+from datetime import date
 import json
 import unittest
 from unittest.mock import Mock, patch
@@ -14,9 +15,12 @@ from ecommerce_agent import handler
 
 class ConversationServiceTests(unittest.TestCase):
     def setUp(self):
+        clock = patch("ecommerce_agent.application.utc_today", return_value=date(2026, 10, 23))
+        clock.start()
+        self.addCleanup(clock.stop)
         self.now = 1700000000
-        self.repo = MemoryRepository([Order("P-104", "camila", "Producto A", 39990, customer_name="Camila"),
-                                      Order("P-205", "diego", "Producto B", 19990, customer_name="Diego")])
+        self.repo = MemoryRepository([Order("P-104", "camila", "Producto A", 39990, customer_name="Camila", purchased_on="2026-10-01"),
+                                      Order("P-205", "diego", "Producto B", 19990, customer_name="Diego", purchased_on="2026-10-01")])
         self.memory = LocalConversationMemory(clock=lambda: self.now)
         self.planner = LocalPlanner()
         self.service = Service(self.repo, self.planner, conversation_memory=self.memory)

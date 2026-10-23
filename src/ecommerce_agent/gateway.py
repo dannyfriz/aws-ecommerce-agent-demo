@@ -1,11 +1,12 @@
 """AgentCore Gateway con identidad vinculada criptográficamente a cada herramienta."""
 import base64
+from datetime import date
 import json
 import time
 from urllib.parse import urlparse
 from urllib.request import Request
 from uuid import uuid4
-from .domain import Actor, AppError, denied
+from .domain import Actor, AppError, REFUND_WINDOW_DAYS, denied, refund_policy_error
 
 ALLOWED_TOOLS = {"read_order", "request_return"}
 TOOL_PREFIX = "EcommerceTools___"
@@ -124,18 +125,38 @@ class GatewayExecutor:
             if not isinstance(content, list) or len(content) != 1 or content[0].get("type") != "text":
                 raise ValueError()
             value = json.loads(content[0]["text"])
+            if not isinstance(value, dict):
+                raise ValueError()
             if value.get("ok") is False:
-                if value.get("error", {}).get("code") == "ACCESS_DENIED":
-                    raise denied(value["error"].get("reason"), actor.role)
+                error = value.get("error")
+                if not isinstance(error, dict):
+                    raise ValueError()
+                if error.get("code") == "ACCESS_DENIED":
+                    raise denied(error.get("reason"), actor.role)
+                if error.get("code") in {"REFUND_WINDOW_EXPIRED", "PURCHASE_DATE_UNAVAILABLE"}:
+                    # Reconstruir el texto controlado; nunca reenviar un mensaje libre del target.
+                    raise refund_policy_error(error["code"])
                 raise AppError("GATEWAY_UNAVAILABLE", "La herramienta no pudo confirmar la operación.", 503)
             # Solo aceptar los datos contractuales del target, nunca texto libre de MCP.
             if value.get("decision") != "ALLOW" or not isinstance(value.get("order"), dict):
                 raise ValueError()
             order = value["order"]
-            expected = {"order_id", "product", "amount", "currency", "status", "return_status", "version", "customer_name"}
+            expected = {"order_id", "product", "amount", "currency", "status", "return_status", "version", "customer_name",
+                        "purchased_on", "purchase_age_days", "refund_eligible"}
             if set(order) != expected or order["order_id"] != order_id:
                 raise ValueError()
             if not isinstance(order["customer_name"], str) or len(order["customer_name"]) > 120:
+                raise ValueError()
+            age = order["purchase_age_days"]
+            if (not isinstance(order["purchased_on"], str) or len(order["purchased_on"]) > 10
+                    or (age is not None and (type(age) is not int or age < 0))
+                    or type(order["refund_eligible"]) is not bool
+                    or order["refund_eligible"] != (age is not None and age <= REFUND_WINDOW_DAYS)):
+                raise ValueError()
+            if order["purchased_on"]:
+                if date.fromisoformat(order["purchased_on"]).isoformat() != order["purchased_on"]:
+                    raise ValueError()
+            elif age is not None:
                 raise ValueError()
             return {name: value[name] for name in ("order", "decision", "executed") if name in value}
         except (KeyError, TypeError, ValueError):

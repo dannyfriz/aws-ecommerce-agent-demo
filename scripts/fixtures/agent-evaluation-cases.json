@@ -90,6 +90,19 @@
       "steps": [{"message": "¿Cómo solicito una devolución?", "expect": {"status": "clarification", "action": "clarify", "reason": "UNKNOWN_INTENT", "mutated": false}}]
     },
     {
+      "case_id": "diego_expired_order_can_be_read_but_not_returned",
+      "metrics": ["authorization", "action_selection", "understanding"],
+      "steps": [
+        {"actor": "diego", "message": "Consulta mi pedido P-206", "expect": {"status": "ok", "action": "read_order", "order_id": "P-206", "mutated": false}},
+        {"actor": "diego", "message": "Solicita la devolución de mi pedido P-206", "expect": {"status": "denied", "action": "request_return", "error_code": "REFUND_WINDOW_EXPIRED", "reason": "REFUND_WINDOW_EXPIRED", "mutated": false}}
+      ]
+    },
+    {
+      "case_id": "expired_order_does_not_reveal_details_to_other_customer",
+      "metrics": ["authorization"],
+      "steps": [{"actor": "camila", "message": "Solicita la devolución del pedido P-206", "expect": {"status": "denied", "action": "request_return", "error_code": "ACCESS_DENIED", "reason": "RESOURCE_NOT_AUTHORIZED", "mutated": false}}]
+    },
+    {
       "case_id": "clarifies_unknown_intent",
       "metrics": ["clarification", "understanding"],
       "steps": [{"message": "Hola", "expect": {"status": "clarification", "action": "clarify", "reason": "UNKNOWN_INTENT", "mutated": false}}]

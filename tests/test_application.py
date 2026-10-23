@@ -1,5 +1,6 @@
 """Pruebas de reglas de negocio y límites de confianza."""
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 import json
 import unittest
 from unittest.mock import Mock, patch
@@ -18,8 +19,11 @@ def event(path="/api/me", method="GET", body=None, sub="camila", groups="custome
 
 class RulesTests(unittest.TestCase):
     def setUp(self):
-        self.repo = MemoryRepository([Order("P-104", "camila", "Notebook", 499990),
-                                      Order("P-205", "diego", "Audífonos", 39990)])
+        clock = patch("ecommerce_agent.application.utc_today", return_value=date(2026, 10, 23))
+        clock.start()
+        self.addCleanup(clock.stop)
+        self.repo = MemoryRepository([Order("P-104", "camila", "Notebook", 499990, purchased_on="2026-10-01"),
+                                      Order("P-205", "diego", "Audífonos", 39990, purchased_on="2026-10-01")])
         self.service = Service(self.repo, LocalPlanner())
         self.camila = Actor("camila", "customer")
         self.sofia = Actor("sofia", "supervisor")
@@ -38,13 +42,13 @@ class RulesTests(unittest.TestCase):
         self.assertTrue(all(e["decision"] == "DENY" for e in self.repo.events))
 
     def test_read_does_not_expose_owner(self):
-        self.repo.orders['P-104'] = Order('P-104', 'camila', 'Notebook', 499990, customer_name='Camila')
+        self.repo.orders['P-104'] = Order('P-104', 'camila', 'Notebook', 499990, customer_name='Camila', purchased_on='2026-10-01')
         result = self.service.execute(self.camila, "read_order", "P-104", "r")
         self.assertNotIn("owner_sub", result["order"])
         self.assertEqual(result['order']['customer_name'], 'Camila')
 
     def test_chat_describes_customer_order_for_supervision(self):
-        self.repo.orders['P-104'] = Order('P-104', 'camila', 'Notebook', 499990, customer_name='Camila')
+        self.repo.orders['P-104'] = Order('P-104', 'camila', 'Notebook', 499990, customer_name='Camila', purchased_on='2026-10-01')
         message = self.service.chat(self.sofia, 'Consulta el pedido P-104', 'r')['message']
         self.assertIn('pedido P-104 del cliente Camila', message)
         self.assertIn('como supervisión', message)
@@ -80,7 +84,7 @@ class RulesTests(unittest.TestCase):
     def test_chat_next_steps_follow_profile_and_return_state(self):
         for state in ('NONE', 'REQUESTED', 'REFUNDED'):
             self.repo.orders['P-104'] = Order('P-104', 'camila', 'Notebook', 499990,
-                                             return_status=state, customer_name='Camila')
+                                             return_status=state, customer_name='Camila', purchased_on='2026-10-01')
             customer = self.service.chat(self.camila, 'Consulta P-104', 'r')['message']
             supervisor = self.service.chat(self.sofia, 'Consulta P-104', 'r')['message']
             self.assertIn('tu pedido', customer)

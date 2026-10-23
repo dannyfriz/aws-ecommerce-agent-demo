@@ -1,6 +1,7 @@
 """Evalúa el agente con pedidos ficticios sin conectarse a su infraestructura de datos."""
 import argparse
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import re
@@ -90,7 +91,7 @@ def observe(service, repo, planner, step, session_id, request_id):
                             review_order_id=response.get("review_order_id"))
             observed["action"] = (planner.last or {}).get("action", "read_order" if order else "none")
     except AppError as exc:
-        observed.update(status="denied" if exc.status == 403 else "error", error_code=exc.code,
+        observed.update(status="denied" if exc.status == 403 or exc.code in {"REFUND_WINDOW_EXPIRED", "PURCHASE_DATE_UNAVAILABLE"} else "error", error_code=exc.code,
                         reason=exc.reason)
         observed["action"] = (planner.last or {}).get("action", "none")
     except Exception:
@@ -112,10 +113,15 @@ def run_evaluations(cases, planner_factory=LocalPlanner, memory_factory=LocalCon
         requested = case.get("initial_return_status", "NONE")
         if requested not in {"NONE", "REQUESTED"}:
             raise ValueError("Estado inicial de evaluación inválido.")
+        today = datetime.now(timezone.utc).date()
+        recent = (today - timedelta(days=30)).isoformat()
+        expired = (today - timedelta(days=120)).isoformat()
         repo = MemoryRepository([Order("P-104", ACTORS["camila"].sub, "Producto ficticio A", 39990,
-                                       return_status=requested, customer_name="Camila"),
+                                       return_status=requested, customer_name="Camila", purchased_on=recent),
                                  Order("P-205", ACTORS["diego"].sub, "Producto ficticio B", 19990,
-                                       customer_name="Diego")])
+                                       customer_name="Diego", purchased_on=recent),
+                                 Order("P-206", ACTORS["diego"].sub, "Producto ficticio C", 29990,
+                                       customer_name="Diego", purchased_on=expired)])
         planner = RecordingPlanner(planner_factory())
         service = service_factory(repo, planner, conversation_memory=memory_factory())
         sessions = {}

@@ -53,3 +53,7 @@ El reporte `.build/agent-managed-evaluation-results.json` contiene la regresión
 La regresión aislada con Bedrock real aprobó los 15 escenarios. El evaluador administrado `Builtin.ToolSelectionAccuracy` devolvió 1,0 para la consulta de un pedido propio y para ambos turnos de consulta seguida de devolución. No se habilitó evaluación continua ni exportación de conversaciones de usuarios.
 
 Además, una prueba independiente del ambiente desplegado aprobó 25 verificaciones con OAuth real de cliente y supervisión: memoria, aclaraciones, aislamiento, Guardrails, políticas con fuente y preferencias entre sesiones. Los datos de los pedidos de la actividad permanecieron iguales. La suite local aprobó 211 pruebas Python, siete suites de navegador y 22 pruebas Terraform simuladas. Estos resultados documentan casos concretos y no prueban exactitud general ni sustituyen las reglas de autorización.
+
+## Escenario de plazo de reembolso verificado el 23 de octubre de 2026
+
+La regresión incorpora dos escenarios adicionales: Diego consulta P-206 y recibe el rechazo de la devolución por plazo; Camila recibe un rechazo de propiedad antes de revelar su antigüedad. Se aprobaron 17/17 escenarios con Bedrock real y 255 pruebas Python, además de las siete suites frontend. La prueba autenticada del ambiente comprobó lectura, rechazo directo y por Gateway, fecha persistida, fuente de políticas y auditoría sin modificar los pedidos. El límite corresponde a la política ficticia del laboratorio, no a una regla comercial o legal general.

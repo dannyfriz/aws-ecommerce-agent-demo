@@ -25,6 +25,32 @@ Las notas de PowerPoint contienen únicamente la oratoria, en un tono natural pa
 - El indicador de API consulta solamente /api/health. Ensayar también inicio de sesión, consulta por chat, recorrido Bedrock/AgentCore y auditoría: el indicador verde no comprueba la aplicación completa ni sus controles de autorización.
 - Mantener listos los diagramas de la PPT como respaldo. Si se usan capturas o grabaciones, identificarlas como un registro previo; no presentarlas como una ejecución en vivo. No desplegar Terraform durante la charla.
 
+## Prueba opcional: el pedido es propio, pero la compra supera 90 días
+
+Usar esta prueba con Diego durante preguntas o en un ensayo extendido; no agrega una cuarta pausa al recorrido de 35 minutos ni modifica las diapositivas. Permite distinguir **autorización** de **elegibilidad**: la identidad permite consultar un pedido propio, mientras que otra regla del servidor limita qué compras admiten una solicitud de devolución.
+
+La carga inicial prepara P-205 para Diego con una compra de hace 30 días y P-206, también de Diego, con una compra de hace 120 días. Las fechas se guardan una sola vez. Repetir la carga o reiniciar un pedido conserva su fecha original; antes de presentar, revisar la antigüedad que muestra la página. Los 90 días son una regla ficticia de esta demo, no un plazo legal o comercial real.
+
+Para agregar el escenario usando las identidades existentes, sin crear usuarios ni modificar contraseñas, ejecutar desde la raíz del repositorio:
+
+```powershell
+& ".\scripts\Seed-Demo.ps1" -Profile TU_PERFIL -OrdersOnly
+```
+
+La preparación no reinicia estados existentes. Completa únicamente las fechas faltantes con control de propietario y versión, y aumenta la versión de esos pedidos para invalidar confirmaciones anteriores. No usar `-ResetOrders` para preparar este contraste.
+
+1. Ingresar como Diego en una sesión independiente y comprobar «Cliente (customer)».
+2. Enviar «Consulta mi pedido P-205» y observar la fecha de compra y la elegibilidad. La consulta no cambia el pedido.
+3. Enviar «Consulta mi pedido P-206». Debe mostrar el pedido propio y explicar que la compra supera 90 días. Anotar estado y versión.
+4. Enviar «Solicita la devolución de mi pedido P-206». Debe rechazar la operación con un mensaje de plazo vencido; en los detalles técnicos aparece `REFUND_WINDOW_EXPIRED`. No se crea una solicitud pendiente ni cambia la versión.
+5. Consultar P-206 nuevamente y comparar el estado y la versión. Revisar la evidencia de decisión y su identificador de solicitud con supervisión.
+
+**Oratoria para decir:**
+
+Ahora entraré como Diego. Los dos pedidos que consultamos son suyos, así que tiene permiso para leerlos. La diferencia está en cuándo compró cada producto. Esta compra ya supera el límite de 90 días que definimos para el ejercicio. Diego puede consultar sus datos, pero el servidor rechaza la solicitud de devolución y conserva el pedido. El modelo puede entender perfectamente lo que le pidió; aun así, la acción debe cumplir las reglas del negocio. Tener acceso a una compra no significa que todas las operaciones estén permitidas. Un supervisor tampoco puede saltarse este plazo. Esta es una condición ficticia del laboratorio y no representa la legislación ni la política de una tienda real.
+
+El día de compra cuenta como día 0; el día 90 está incluido y desde el día 91 se rechaza la solicitud. La comprobación usa fechas de calendario en UTC guardadas en el servidor. El chat no puede cambiar la fecha, el propietario ni ese límite.
+
 ## Mapa de tiempos del recorrido principal
 
 | Tiempo | Diapositiva | Tema | Cambio de ventana |

@@ -1,5 +1,6 @@
 """Contexto de identidad firmado y fronteras del Gateway sin servicios remotos."""
 import copy
+from datetime import date
 import hashlib
 import hmac
 import json
@@ -96,6 +97,51 @@ class GatewayTests(unittest.TestCase):
         with self.assertRaises(AppError):
             self.executor.execute(Actor("sofia", "supervisor"), "approve_refund", "P-104", "r")
         self.transport.call.assert_not_called()
+
+    def test_refund_policy_errors_keep_their_code_without_untrusted_target_text(self):
+        for code in ("REFUND_WINDOW_EXPIRED", "PURCHASE_DATE_UNAVAILABLE"):
+            payload = {"ok": False, "error": {"code": code, "reason": "untrusted", "message": "texto no confiable"}}
+            self.transport.call.return_value = {"result": {"content": [{"type": "text", "text": json.dumps(payload)}]}}
+            with self.assertRaises(AppError) as error:
+                self.executor.execute(self.actor, "request_return", "P-104", "r")
+            self.assertEqual((error.exception.code, error.exception.reason, error.exception.status), (code, code, 422))
+            self.assertIn("90 días", error.exception.message)
+            self.assertNotIn("texto no confiable", error.exception.message)
+
+    def test_signed_gateway_target_preserves_the_refund_window_rejection(self):
+        before = Order("P-206", "diego", "Producto de práctica", 19990, purchased_on="2026-06-25")
+        repo = MemoryRepository([before])
+        service = Service(repo, None, clock=lambda: date(2026, 10, 23))
+        kms = FakeKms()
+
+        def transport_call(url, payload):
+            params = payload["params"]
+            context = SimpleNamespace(client_context=SimpleNamespace(custom={"bedrockAgentCoreToolName": params["name"]}))
+            result = gateway_handler.lambda_handler(params["arguments"], context)
+            return {"result": {"content": [{"type": "text", "text": json.dumps(result)}]}}
+
+        transport = Mock()
+        transport.call.side_effect = transport_call
+        executor = GatewayExecutor(kms, "key", "https://example.com/mcp", transport)
+        with patch.object(gateway_handler, "dependencies", return_value=(service, kms)), patch.dict("os.environ", {"AGENTCORE_MAC_KEY_ID": "key"}):
+            with self.assertRaises(AppError) as denied:
+                executor.execute(Actor("diego", "customer"), "request_return", "P-206", "signed-rejection")
+        self.assertEqual((denied.exception.code, denied.exception.status), ("REFUND_WINDOW_EXPIRED", 422))
+        self.assertEqual(repo.get("P-206"), before)
+        self.assertEqual(repo.events[-1]["request_id"], "signed-rejection")
+        self.assertFalse(repo.events[-1]["executed"])
+
+    def test_gateway_rejects_inconsistent_age_and_eligibility(self):
+        valid = Order("P-104", "camila", "Notebook", 499990).public()
+        for changes in ({"purchase_age_days": True}, {"purchase_age_days": -1},
+                        {"purchase_age_days": 91, "refund_eligible": True}, {"refund_eligible": "true"},
+                        {"purchased_on": "2026-02-30"}, {"purchased_on": "20261023"},
+                        {"purchase_age_days": 1, "refund_eligible": True}):
+            payload = {"order": {**valid, **changes}, "decision": "ALLOW"}
+            self.transport.call.return_value = {"result": {"content": [{"type": "text", "text": json.dumps(payload)}]}}
+            with self.assertRaises(AppError) as error:
+                self.executor.execute(self.actor, "read_order", "P-104", "r")
+            self.assertEqual(error.exception.code, "GATEWAY_INVALID_RESPONSE")
 
     def test_gateway_result_and_private_envelope(self):
         order = Order("P-104", "camila", "Notebook", 499990).public()

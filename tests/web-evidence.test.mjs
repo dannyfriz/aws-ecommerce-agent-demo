@@ -23,4 +23,21 @@ assert.ok(chatErrorReply({code:'MODEL_INVALID_RESPONSE'}).includes('no se ejecut
 const unavailable=chatErrorReply({code:'DEPENDENCY_UNAVAILABLE',message:'El servicio no está disponible. No se confirmó la operación.'});
 assert.ok(unavailable.includes('No se confirmó la operación'));
 assert.ok(!unavailable.includes('no permitió'));
+for(const role of ['customer','supervisor']){
+  const expired=chatErrorReply({code:'REFUND_WINDOW_EXPIRED',reason:'REFUND_WINDOW_EXPIRED'},role);
+  assert.ok(expired.includes('90 días'));
+  assert.ok(expired.includes('El pedido no se modificó'));
+  assert.ok(!expired.includes('desde tu cuenta'));
+  assert.ok(!expired.includes('perfil de cliente'));
+  if(role==='supervisor')assert.ok(expired.includes('también debe respetar'));
+  const unknown=chatErrorReply({code:'PURCHASE_DATE_UNAVAILABLE'},role);
+  assert.ok(unknown.includes('fecha de compra válida'));
+  assert.ok(!unknown.includes('propietario'));
+}
+const expiredDecision=decisionEvidence({action:'request_return',decision:'DENY',executed:false,reason:'REFUND_WINDOW_EXPIRED'},'Devolución','customer');
+assert.ok(expiredDecision.lines.some(line=>line.includes('regla de negocio')));
+assert.ok(expiredDecision.lines.some(line=>line.includes('90 días')));
+assert.ok(!expiredDecision.lines.some(line=>line.includes('Acceso permitido') || line.includes('ya estaba registrada')));
+const invalidDate=decisionEvidence({action:'approve_refund',decision:'DENY',executed:false,reason:'PURCHASE_DATE_UNAVAILABLE'},'Aprobación','supervisor');
+assert.ok(invalidDate.lines.some(line=>line.includes('fecha de compra válida')));
 console.log('Evidencia: consulta, cambio, reintento, rechazo y errores verificados.');

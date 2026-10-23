@@ -4,6 +4,8 @@ Demo de un asistente de soporte posventa para la charla **«¿Quién le dio perm
 
 El cliente consulta un pedido propio y solicita una devolución. El agente interpreta la solicitud y propone herramientas; el backend verifica identidad, propiedad y reglas de negocio. Una persona con rol supervisor autoriza el reembolso desde un flujo independiente del chat. No se mueven fondos.
 
+La política ficticia del laboratorio permite solicitar revisión hasta 90 días calendario desde la compra, inclusive. Desde el día 91 el servidor rechaza nuevas devoluciones y aprobaciones, aunque la persona tenga el perfil correcto. Diego puede comparar P-205, con 30 días al preparar los datos, y P-206, con 120 días. Consultar P-206 sigue permitido; la solicitud de devolución muestra `REFUND_WINDOW_EXPIRED`. Reiniciar el pedido conserva su fecha de compra.
+
 [Presentación: identidad y acceso para agentes en AWS](docs/presentaciones/Danny_Friz_SCD_2026_arquitectura_IA.pptx), con 22 diapositivas principales, tres pausas para demostrar permisos y ocho anexos técnicos. El recorrido conecta identidad humana y de la aplicación, IAM, AgentCore, autorización externa al modelo y evidencia. Ver el [guion de 35 minutos más preguntas](docs/demo-35-minutos.md) y la [alineación con la charla](docs/foco-charla.md).
 
 La oratoria mantiene un tono natural para estudiantes de nivel 200 con nociones básicas de IAM. Las notas contienen solo el discurso. El [texto fuente](docs/presentaciones/oratoria-nivel-200.json) sincroniza la PPT y el guion separado, donde quedan los tiempos, las instrucciones de demo y las referencias.
