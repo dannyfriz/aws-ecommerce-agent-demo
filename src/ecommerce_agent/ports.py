@@ -12,7 +12,7 @@ class Repository(Protocol):
 
 
 class Planner(Protocol):
-    def plan(self, message: str) -> list[dict]: ...
+    def plan(self, message: str, context: dict | None = None) -> list[dict]: ...
 
 
 class ToolExecutor(Protocol):

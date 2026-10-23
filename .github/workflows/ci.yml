@@ -60,6 +60,11 @@ jobs:
           node tests/web-profiles.test.mjs
           node tests/web-pending.test.mjs
           node tests/web-review.test.mjs
+          node tests/web-conversation.test.mjs
+      - name: Evaluar conversaciones ficticias sin AWS
+        env:
+          PYTHONPATH: src
+        run: python scripts/evaluate_agent.py
       - name: Comprobar artefactos y sintaxis
         run: python scripts/check_repository.py
       - name: Empaquetar Lambda ARM64

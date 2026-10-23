@@ -129,9 +129,9 @@ class RulesTests(unittest.TestCase):
 
     def test_review_assistance_requires_one_order_and_never_mutates(self):
         for message in ('Aprueba el reembolso', 'Aprueba el reembolso P-104 y P-205'):
-            with self.assertRaises(AppError) as error:
-                self.service.chat(self.sofia, message, 'r')
-            self.assertEqual(error.exception.code, 'INVALID_INPUT')
+            response = self.service.chat(self.sofia, message, 'r')
+            self.assertEqual(response['decision'], 'CLARIFY')
+            self.assertEqual(response['results'], [])
         self.service.execute(self.camila, 'request_return', 'P-104', 'r')
         self.service.execute(self.sofia, 'approve_refund', 'P-104', 'r', 2, True)
         before = self.repo.get('P-104')
@@ -219,10 +219,18 @@ class IdentityAndHttpTests(unittest.TestCase):
     def test_session_username_comes_from_verified_claims(self):
         request = event(body={"username": "sofia", "role": "supervisor"})
         request["requestContext"]["authorizer"]["jwt"]["claims"]["username"] = "camila"
-        with patch.object(handler, "_service", Mock()):
+        with patch.object(handler, "_service", Service(MemoryRepository(), LocalPlanner())):
             result = handler.lambda_handler(request, None)
         self.assertEqual(json.loads(result["body"])["data"], {
-            "sub": "camila", "username": "camila", "role": "customer"})
+            "sub": "camila", "username": "camila", "role": "customer",
+            "capabilities": {"conversation_memory": False, "preferences": False, "policy_knowledge": False, "content_guard": False}})
+
+    def test_capabilities_follow_service_configuration_and_not_body(self):
+        service = Service(MemoryRepository(), LocalPlanner(), conversation_memory=Mock(),
+                          preference_memory=Mock(), knowledge=Mock(), content_guard=Mock())
+        with patch.object(handler, "_service", service):
+            result = handler.lambda_handler(event(body={"capabilities": {"preferences": False}}), None)
+        self.assertTrue(all(json.loads(result['body'])['data']['capabilities'].values()))
 
     def test_public_health_does_not_build_services_or_expose_identity(self):
         request = {"rawPath": "/api/health", "requestContext": {"http": {"method": "GET"}}}

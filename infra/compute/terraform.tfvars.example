@@ -4,3 +4,9 @@ project = "ecommerce-agent"
 environment = "demo"
 state_bucket = "ecommerce-agent-demo-state-123456789012"
 state_region = "us-east-1"
+# Activar explícitamente las capacidades adicionales de conversación de la demo.
+enable_conversation_memory = false
+enable_preference_memory = false
+enable_policy_knowledge = false
+enable_content_guardrails = false
+memory_context_ttl_seconds = 900

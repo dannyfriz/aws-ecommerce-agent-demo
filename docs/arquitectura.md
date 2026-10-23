@@ -13,6 +13,28 @@
 
 ## Dos identidades
 
+Con las [capacidades de conversación](memoria-y-conocimiento.md) habilitadas, el backend carga de AgentCore Memory solo una referencia de pedido y una intención pendiente. Las preferencias de detalle se conservan en otra memoria. Guardrails filtra el mensaje; Bedrock puede proponer consultar un pedido, solicitar una devolución, pedir aclaración o buscar información general. Las aclaraciones y políticas se procesan en el backend; únicamente las dos acciones de pedido se publican en Gateway. Knowledge Bases recupera extractos de un documento ficticio mediante Titan Text Embeddings V2 y S3 Vectors. La respuesta de políticas conserva su fuente y pasa por Guardrails.
+
+```mermaid
+flowchart LR
+    WEB[SPA con sesión Cognito] --> API[API Gateway JWT]
+    API --> BACK[Lambda backend]
+    BACK <--> MEM[AgentCore Memory: contexto y preferencias]
+    BACK --> GR[Bedrock Guardrails]
+    GR --> MODEL[Bedrock Converse: propuesta]
+    MODEL --> BACK
+    BACK -->|Acciones de pedido| GW[AgentCore Gateway y Policy]
+    GW --> TOOL[Lambda tools: autoriza pedido]
+    TOOL <--> DB[DynamoDB: pedidos y auditoría]
+    BACK -->|Políticas generales| KB[Bedrock Knowledge Bases]
+    KB <--> VEC[S3 Vectors]
+    DOC[S3: política ficticia] --> EMB[Titan Text Embeddings V2]
+    EMB --> VEC
+    BACK -->|Revisión humana separada| DB
+```
+
+Las [evaluaciones](evaluaciones-agente.md) ejecutan conversaciones ficticias fuera de los pedidos desplegados. El modo administrado envía a AgentCore Evaluations únicamente trazas reales de ese conjunto de pruebas, conservadas en RAM; no activa la captura de conversaciones del sitio.
+
 | Identidad | Fuente de confianza | Qué controla |
 |---|---|---|
 | Persona | Cognito + authorizer JWT | Propiedad del pedido, rol y posibilidad de aprobar |

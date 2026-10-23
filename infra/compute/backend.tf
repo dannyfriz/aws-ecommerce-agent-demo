@@ -43,8 +43,17 @@ resource "aws_lambda_function" "backend" {
     MODE             = "aws", ORDERS_TABLE = local.tables.orders_table_name, AUDIT_TABLE = local.tables.audit_table_name,
     BEDROCK_MODEL_ID = aws_bedrock_inference_profile.project.arn, MODEL_REGION = var.model_region,
     AUDIT_TTL_DAYS   = tostring(var.audit_ttl_days), APP_NAME = local.name
-  }, var.enable_agentcore ? { AGENTCORE_GATEWAY_URL = aws_bedrockagentcore_gateway.tools[0].gateway_url, AGENTCORE_MAC_KEY_ID = aws_kms_key.identity_mac[0].arn } : {}) }
-  depends_on = [aws_iam_role_policy.backend, aws_iam_role_policy.backend_gateway, aws_bedrockagentcore_policy.tools]
+    }, var.enable_agentcore ? { AGENTCORE_GATEWAY_URL = aws_bedrockagentcore_gateway.tools[0].gateway_url, AGENTCORE_MAC_KEY_ID = aws_kms_key.identity_mac[0].arn } : {},
+    var.enable_conversation_memory ? { AGENTCORE_MEMORY_ID = aws_bedrockagentcore_memory.conversation[0].id,
+    MEMORY_CONTEXT_TTL_SECONDS = tostring(var.memory_context_ttl_seconds) } : {},
+    var.enable_conversation_memory || var.enable_preference_memory ? { MEMORY_ENVIRONMENT = var.environment } : {},
+    var.enable_preference_memory ? { AGENTCORE_PREFERENCES_MEMORY_ID = aws_bedrockagentcore_memory.preferences[0].id } : {},
+    var.enable_content_guardrails ? { CONTENT_GUARDRAIL_ID = aws_bedrock_guardrail.chat[0].guardrail_id,
+    CONTENT_GUARDRAIL_VERSION = aws_bedrock_guardrail_version.chat[0].version } : {},
+    var.enable_policy_knowledge ? { POLICY_KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.policies[0].id,
+  POLICY_KNOWLEDGE_SOURCE_URI = "s3://${aws_s3_bucket.policies[0].bucket}/${local.policy_document_key}" } : {}) }
+  depends_on = [aws_iam_role_policy.backend, aws_iam_role_policy.backend_gateway, aws_bedrockagentcore_policy.tools,
+  aws_iam_role_policy.backend_memory, aws_iam_role_policy.backend_preferences, aws_iam_role_policy.backend_guardrail, aws_iam_role_policy.backend_knowledge]
   lifecycle {
     precondition {
       condition     = length(var.bedrock_model_arns) > 0 || (var.bedrock_model_id == "us.amazon.nova-2-lite-v1:0" && var.model_region == "us-east-1")

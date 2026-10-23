@@ -36,3 +36,21 @@ run "cloudfront_exige_waf_y_no_muestrea_solicitudes" {
     error_message = "La proteccion debe incluir reglas administradas y limite por IP."
   }
 }
+
+run "indexador_vectorial_solo_descifra_el_bucket_del_proyecto" {
+  command = plan
+  override_resource {
+    target          = aws_cloudfront_distribution.web
+    override_during = plan
+    values          = { arn = "arn:aws:cloudfront::123456789012:distribution/EXAMPLE" }
+  }
+  assert {
+    condition = length([for statement in jsondecode(aws_kms_key_policy.app.policy).Statement : statement if statement.Sid == "IndexacionVectorialDeEsteProyecto"]) == 1 && alltrue([for statement in jsondecode(aws_kms_key_policy.app.policy).Statement : (
+      statement.Principal.Service == "indexing.s3vectors.amazonaws.com" && statement.Action == "kms:Decrypt" &&
+      statement.Condition.StringEquals["aws:SourceAccount"] == "123456789012" &&
+      statement.Condition.ArnLike["aws:SourceArn"] == ["arn:aws:s3vectors:us-east-1:123456789012:bucket/ecommerce-agent-demo-policy-vectors-123456789012", "arn:aws:s3vectors:us-east-1:123456789012:bucket/ecommerce-agent-demo-policy-vectors-123456789012/*"]
+      ) if statement.Sid == "IndexacionVectorialDeEsteProyecto"
+    ])
+    error_message = "El indexador solo puede descifrar para este bucket, cuenta y contexto de cifrado."
+  }
+}

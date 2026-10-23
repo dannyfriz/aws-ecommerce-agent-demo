@@ -47,8 +47,8 @@ variables {
 run "autorizacion_y_gateway_obligatorios" {
   command = plan
   assert {
-    condition     = aws_apigatewayv2_route.health.route_key == "GET /api/health" && aws_apigatewayv2_route.health.authorization_type == "NONE" && length(aws_apigatewayv2_route.routes) == 8
-    error_message = "Solo el estado mínimo es público; las ocho rutas de negocio conservan JWT."
+    condition     = aws_apigatewayv2_route.health.route_key == "GET /api/health" && aws_apigatewayv2_route.health.authorization_type == "NONE" && length(aws_apigatewayv2_route.routes) == 10
+    error_message = "Solo el estado mínimo es público; las diez rutas de negocio conservan JWT."
   }
   assert {
     condition     = aws_bedrockagentcore_gateway.tools[0].authorizer_type == "AWS_IAM" && aws_bedrockagentcore_gateway.tools[0].policy_engine_configuration[0].mode == "ENFORCE"

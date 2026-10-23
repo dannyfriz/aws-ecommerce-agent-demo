@@ -4,6 +4,7 @@ import {decisionEvidence,errorExplanation,chatErrorReply} from './evidence.js';
 import {createOrderSync} from './order-sync.js';
 import {profilePresentation} from './profiles.js';
 import {createPendingQueue} from './pending.js';
+import {createConversation} from './conversation.js';
 
 const $ = id => document.getElementById(id);
 let currentOrder = null;
@@ -14,6 +15,8 @@ let busy = false;
 let checkingHealth = false;
 let pendingNext=null;
 let pendingSignature='';
+let responseDetail='brief';
+const conversation=createConversation();
 
 const refreshPending=createPendingQueue({
   getSession:()=>currentUser,
@@ -143,7 +146,7 @@ function renderOrder(order,{synchronized=true}={}) {
 async function perform(task,onFailure) {
   if (busy) return;
   busy=true;
-  const buttons=[...document.querySelectorAll('#workspace button')];
+  const buttons=[...document.querySelectorAll('#workspace button,#workspace select')];
   const previous=buttons.map(button=>button.disabled);
   buttons.forEach(button=>{button.disabled=true;});
   try { await task(); } catch(error) { if(onFailure)onFailure(error); failure(error); }
@@ -156,9 +159,21 @@ $('clear-evidence').addEventListener('click',()=>{
   $('evidence').replaceChildren();
   status('Evidencias visibles reiniciadas. Puedes comenzar otra ronda; los pedidos y la auditoría del servidor se conservaron.');
 });
-$('logout').addEventListener('click',()=>{ $('workspace').hidden=true; currentUser=null; currentOrder=null; $('conversation').replaceChildren(); $('evidence').replaceChildren(); try {signOut();} catch(error){failure(error);} });
+$('logout').addEventListener('click',()=>{ $('workspace').hidden=true; currentUser=null; currentOrder=null; conversation.reset(); $('conversation').replaceChildren(); $('evidence').replaceChildren(); try {signOut();} catch(error){failure(error);} });
+$('new-conversation').addEventListener('click',()=>{
+  if(busy)return;
+  conversation.reset(); $('conversation').replaceChildren();
+  addMessage('Asistente',profilePresentation(currentUser).greeting);
+  status('Comenzaste otra conversación. Indica el pedido nuevamente; los pedidos y la auditoría se conservaron.');
+});
+$('response-detail').addEventListener('change',()=>perform(async()=>{
+  const result=await request('/api/preferences',{preferred_detail:$('response-detail').value});
+  responseDetail=result.data.preferred_detail; $('response-detail').value=responseDetail;
+  status('Preferencia guardada para tus próximas sesiones.');
+},()=>{$('response-detail').value=responseDetail;}));
+$('policy-example').addEventListener('click',()=>{$('message').value='¿Quién puede solicitar una devolución y quién aprueba el reembolso?';$('message').focus();});
 document.querySelectorAll('[data-message]').forEach(button=>button.addEventListener('click',()=>{$('message').value=button.dataset.message; $('message').focus();}));
-$('chat-form').addEventListener('submit',event=>{event.preventDefault(); const message=$('message').value.trim(); if(!message)return; perform(async()=>{addMessage('Tú',message); $('message').value=''; const result=await request('/api/chat',{message}); const reply=addMessage('Asistente',result.data.message); if(currentUser?.role==='supervisor' && result.data.review_order_id){const id=result.data.review_order_id; const button=element('button','Revisar reembolso'); button.type='button'; button.addEventListener('click',()=>perform(()=>reviewRefund(id))); reply.append(button);} for(const item of result.data.results || []){ if(item.order){renderOrder(item.order);orderSynchronized();} evidence('Resultado de la herramienta',{request_id:result.request_id,data:item}); } if(!result.data.results?.length)evidence('Respuesta del asistente',result); status('Solicitud procesada. Revisa la evidencia.');},error=>addMessage('Asistente',chatErrorReply(error,currentUser?.role)));});
+$('chat-form').addEventListener('submit',event=>{event.preventDefault(); const message=$('message').value.trim(); if(!message)return; perform(async()=>{addMessage('Tú',message); $('message').value=''; const result=await request('/api/chat',conversation.payload(message)); conversation.accept(result.data); const reply=addMessage('Asistente',result.data.message); for(const source of result.data.sources || [])reply.append(element('small',`Fuente: ${source.title}`)); if(currentUser?.role==='supervisor' && result.data.review_order_id){const id=result.data.review_order_id; const button=element('button','Revisar reembolso'); button.type='button'; button.addEventListener('click',()=>perform(()=>reviewRefund(id))); reply.append(button);} for(const item of result.data.results || []){ if(item.order){renderOrder(item.order);orderSynchronized();} evidence('Resultado de la herramienta',{request_id:result.request_id,data:item}); } if(!result.data.results?.length)evidence('Respuesta del asistente',result); status(result.data.clarification?'El asistente necesita una aclaración; responde en el chat.':result.data.memory_warning?'Respuesta confirmada; el contexto no se guardó.':'Solicitud procesada. Revisa la evidencia.');},error=>addMessage('Asistente',chatErrorReply(error,currentUser?.role)));});
 $('order-form').addEventListener('submit',event=>{event.preventDefault(); perform(async()=>{const id=$('order-id').value.trim(); const result=await request(`/api/orders/${encodeURIComponent(id)}`); renderOrder(result.data.order); orderSynchronized(); evidence('Consulta de pedido',result); status('Pedido consultado.');});});
 $('return').addEventListener('click',()=>perform(async()=>{if(!currentOrder)return; const result=await request('/api/tools',{action:'request_return',order_id:currentOrder.order_id}); renderOrder(result.data.order); evidence('Solicitud de devolución',result); status(result.data.order.return_status==='REFUNDED'?'El reembolso ya estaba aprobado en la demo. No se realizó otro cambio.':result.data.executed?'Solicitud enviada a revisión. Está en espera de un supervisor para evaluar el reembolso.':'La solicitud ya estaba enviada y sigue en espera de supervisión. No se duplicó.');}));
 async function reviewRefund(orderId){
@@ -208,6 +223,15 @@ try {
   configuration();
   if(await completeSignIn()){
     const result=await request('/api/me'); currentUser=result.data;
+    $('response-detail').parentElement.hidden=!currentUser.capabilities?.preferences;
+    $('policy-example').hidden=!currentUser.capabilities?.policy_knowledge;
+    $('conversation-help').textContent=currentUser.capabilities?.conversation_memory
+      ?'Puedes continuar hablando del último pedido durante 15 minutos. Una nueva conversación vuelve a pedir su número.'
+      :'Indica el número del pedido en cada mensaje. Nueva conversación limpia el chat visible.';
+    if(currentUser.capabilities?.preferences){
+      const preferences=await request('/api/preferences');
+      responseDetail=preferences.data.preferred_detail; $('response-detail').value=responseDetail;
+    }
     $('identity').textContent=currentUser.username || currentUser.sub;
     $('identity-sub').textContent=currentUser.sub;
     const presentation=profilePresentation(currentUser);

@@ -37,3 +37,24 @@ Para comprobar la cobertura, contrastar los recursos administrados con el schema
 - La zona Route 53 se administra fuera de estas capas y puede ser compartida. Los registros DNS individuales no admiten tags de costo; no atribuir el costo completo de una zona compartida al laboratorio. Su parte debe imputarse por separado según el criterio acordado. [Tags de Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/tagging-resources.html).
 
 Un reporte filtrado por tags es el costo atribuible disponible, no una garantía de capturar todos los gastos compartidos o cargos que el servicio no etiqueta.
+
+## Consumo de las seis mejoras del asistente
+
+Las cuatro capacidades de infraestructura son opcionales y parten deshabilitadas: `enable_conversation_memory`, `enable_preference_memory`, `enable_content_guardrails` y `enable_policy_knowledge`. Activarlas en variables privadas del ambiente agrega consumo. Las aclaraciones no crean otro servicio; las evaluaciones se ejecutan manualmente y no configuran evaluación continua del tráfico de la demo.
+
+| Componente | Consumo que debe observarse | Límite aplicado |
+|---|---|---|
+| Contexto de sesión | Escrituras y lecturas de eventos de AgentCore Memory; llamadas KMS y paginación | Datos mínimos, uso lógico durante 900 segundos, retención física de eventos de 7 días |
+| Preferencias entre sesiones | Lectura y escritura directa de registros de largo plazo y almacenamiento | Solo idioma/detalle, actualización del registro existente y TTL de 31 días |
+| Guardrails | Unidades de texto y políticas evaluadas por `ApplyGuardrail` | Entrada del flujo de interpretación y salida de extractos de políticas; no se ejecuta sobre todo el tráfico HTTP |
+| Knowledge Bases | Embeddings Titan V2 para ingestión y búsquedas; solicitudes y almacenamiento S3/S3 Vectors; KMS | Un documento ficticio, vectores de 1.024 dimensiones y hasta tres fragmentos por consulta |
+| Evaluación `-Live` | Tokens del modelo real mediante el perfil de aplicación | Dataset ficticio explícito; pedidos y memoria de prueba locales |
+| Evaluación `-Managed` | Inferencia del agente y cargo de AgentCore Evaluations | Casos ficticios seleccionados, spans en RAM; sin captura continua de sesiones desplegadas |
+
+No hay una inferencia adicional para extraer recuerdos o preferencias: el contexto usa `extractionMode=SKIP` y las preferencias se escriben como registros tipados. La respuesta de políticas usa `Retrieve` y extractos literales; no agrega una llamada a un modelo generativo para redactarlos. Esto no elimina los cargos de embeddings, recuperación, almacenamiento o filtro de contenido.
+
+El perfil de aplicación actual atribuye la inferencia conversacional que lo invoca. No asumir que sus tags cubren automáticamente embeddings Titan, Guardrails, almacenamiento vectorial, memoria o evaluadores incorporados. Comparar las líneas por servicio, los tags disponibles y los cargos sin atribuir del mismo período; documentar por separado lo que Billing no permita asignar. El etiquetado técnico de los recursos nuevos tampoco activa por sí solo sus claves en Billing.
+
+Guardrails usa `STANDARD` con el perfil administrado `us.guardrail.v1:0`. AWS indica que la inferencia entre regiones no agrega un cargo adicional; siguen aplicándose las tarifas de las políticas evaluadas. El perfil US distribuye solicitudes de `us-east-1` entre `us-east-1`, `us-east-2` y `us-west-2`; revisar esas regiones al conciliar consumo. Este perfil administrado es distinto del perfil de aplicación que atribuye la inferencia conversacional y no se crea como un recurso propio con tags del proyecto. [Inferencia entre regiones de Guardrails](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html).
+
+Revisar las tarifas vigentes de [AgentCore](https://aws.amazon.com/bedrock/agentcore/pricing/), [Bedrock y Guardrails](https://aws.amazon.com/bedrock/pricing/) y [S3/S3 Vectors](https://aws.amazon.com/s3/pricing/). Eliminar del contexto una referencia vencida o comenzar otra conversación no elimina su almacenamiento físico de inmediato; no debe contabilizarse como costo cero. Diseño y retenciones en [memoria-y-conocimiento.md](memoria-y-conocimiento.md).

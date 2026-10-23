@@ -14,6 +14,7 @@ try {
     Invoke-Checked $node @('tests/web-profiles.test.mjs')
     Invoke-Checked $node @('tests/web-pending.test.mjs')
     Invoke-Checked $node @('tests/web-review.test.mjs')
+    Invoke-Checked $node @('tests/web-conversation.test.mjs')
     foreach ($file in Get-ChildItem -LiteralPath 'web' -Filter '*.js') { Invoke-Checked $node @('--check', $file.FullName) }
     if (-not $SkipTerraform) {
         $terraform = Resolve-Program 'terraform' $TerraformPath

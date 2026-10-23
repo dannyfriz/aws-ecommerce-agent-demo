@@ -22,6 +22,7 @@ Vista estática: `& ".\scripts\Serve-Web.ps1" -Port 8766`
 - `docs/arquitectura.md`, `docs/operacion.md`, `docs/seguridad.md`: diseño y límites.
 
 ## Reglas y estado
+Validación del 23 de octubre de 2026: seis mejoras opcionales de IA implementadas; 211 pruebas Python, siete suites frontend, 22 pruebas Terraform y 15 escenarios con Bedrock real aprobados. La memoria no guarda permisos ni estados de pedidos; las preferencias son explícitas y usan namespace por usuario. Guardrails filtra contenido y Knowledge Bases consulta políticas ficticias. Ninguna de estas capacidades concede acceso ni aprueba reembolsos.
 Demo educativa con datos ficticios y sin pagos. El registro público de usuarios está deshabilitado.
 Responder, comentar código y escribir commits en español latinoamericano; usar Danny Friz en material público.
 Nunca confiar en identidad, rol, propietario o monto del prompt. El modelo no aprueba reembolsos.

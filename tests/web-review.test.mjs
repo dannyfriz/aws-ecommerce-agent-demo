@@ -12,6 +12,7 @@ let latest={order_id:'P-104',customer_name:'Camila',return_status:'REQUESTED',ve
 let running;
 const messages=[];
 const context=vm.createContext({$,Object,encodeURIComponent,
+  conversation:{payload:message=>({message,session_id:'12345678-1234-4123-8123-123456789abc'}),accept:()=>{}},
   element:()=>node(),money:()=>'$1.000',status:()=>{},evidence:()=>{},orderSynchronized:()=>{},
   chatErrorReply:error=>error.message,
   addMessage:()=>{const row=node();messages.push(row);return row;},
@@ -27,6 +28,7 @@ vm.runInContext(source.slice(source.indexOf("$('confirm-approval').addEventListe
 $('chat-form').handlers.submit({preventDefault(){}});
 await running;
 assert.deepEqual(calls.map(call=>call.path),['/api/chat']);
+assert.equal(calls[0].body.session_id,'12345678-1234-4123-8123-123456789abc');
 const button=messages.at(-1).children[0];
 await button.handlers.click();
 assert.equal($('approval-dialog').open,true);

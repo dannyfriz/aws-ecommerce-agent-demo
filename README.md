@@ -16,9 +16,11 @@ Los [nombres y ARN de referencia](docs/recursos-demo.md) conectan los diagramas 
 
 Este repositorio entrega código e infraestructura declarativa para desplegar una demo en una cuenta AWS de laboratorio. **Descargarlo no despliega recursos AWS.** Los datos son ficticios. No constituye una plataforma productiva de comercio, pagos o cumplimiento normativo.
 
-La implementación integra **Amazon Bedrock Converse**, Amazon Cognito, API Gateway, AWS Lambda, Amazon DynamoDB, Amazon S3 y Amazon CloudFront. Con `enable_agentcore=true`, valor predeterminado, las herramientas propuestas en el chat pasan por **Amazon Bedrock AgentCore Gateway y Policy en modo ENFORCE**. El contexto confiable se firma con KMS HMAC y el target comprueba identidad, propiedad y reglas de negocio. No se usa AgentCore Runtime ni Bedrock Agents Classic. Consulta el recorrido y sus límites en [Arquitectura](docs/arquitectura.md).
+La implementación integra **Amazon Bedrock Converse**, Amazon Cognito, API Gateway, AWS Lambda, Amazon DynamoDB, Amazon S3 y Amazon CloudFront. Con `enable_agentcore=true`, valor predeterminado, las herramientas propuestas en el chat pasan por **Amazon Bedrock AgentCore Gateway y Policy en modo ENFORCE**. El contexto confiable se firma con KMS HMAC y el target comprueba identidad, propiedad y reglas de negocio. No se usa AgentCore Runtime ni Bedrock Agents Classic. El recorrido se validó en la cuenta de laboratorio; la evidencia y las limitaciones están en [despliegue de la demo](docs/operacion.md). Consulta [Arquitectura](docs/arquitectura.md).
 
 ## Arquitectura
+
+Las capacidades opcionales agregan **AgentCore Memory** para referencias de pedidos durante 15 minutos y preferencias explícitas entre sesiones, **Bedrock Knowledge Bases** con políticas ficticias en S3 Vectors y **Bedrock Guardrails** para filtrar contenido. Las aclaraciones son respuestas válidas: «Quiero devolver un pedido» → «¿Cuál?» → «P-104». La memoria no conserva permisos ni reemplaza el estado de DynamoDB. Ver [memoria y conocimiento](docs/memoria-y-conocimiento.md) y [evaluaciones del agente](docs/evaluaciones-agente.md).
 
 [![Arquitectura de la aplicación con íconos oficiales de AWS: identidad, frontend, API, agente, herramientas y datos](docs/assets/arquitectura-aplicacion.svg)](docs/assets/arquitectura-aplicacion.svg)
 
@@ -30,6 +32,8 @@ La implementación integra **Amazon Bedrock Converse**, Amazon Cognito, API Gate
 | Ingreso | La SPA inicia Authorization Code + PKCE S256 en Cognito (`auth`). El access token queda en memoria y se envía a API Gateway (`api-dev`). |
 | API | El authorizer valida JWT y scope. Lambda backend deriva identidad y rol de los claims y verifica el propietario del pedido. `/api/health` entrega solamente estado público mínimo. |
 | Chat y modelo | El backend invoca Bedrock Converse mediante un application inference profile. El modelo propone una herramienta; no decide permisos. |
+| Contexto y preferencias | El backend carga contexto mínimo de AgentCore Memory usando la identidad validada y la conversación. Otra memoria guarda solo idioma y detalle elegidos por la persona. |
+| Políticas y contenido | Guardrails evalúa el mensaje. Las preguntas generales pueden buscar extractos de políticas en Knowledge Bases, con Titan Text Embeddings V2 y S3 Vectors; se muestran fuentes y se filtra la respuesta. Esta ruta no consulta pedidos. |
 | Herramientas | El backend firma contexto de 30 segundos con KMS HMAC y llama AgentCore Gateway con MCP + SigV4. Policy Cedar en ENFORCE permite solo `read_order` y `request_return`; la Lambda target verifica el MAC y vuelve a comprobar rol, propietario y reglas. |
 | Datos y evidencia | Ambas Lambdas acceden a pedidos y auditoría en DynamoDB. Los cambios usan una transacción atómica de pedido + evento, con condiciones de versión y estado. Las tablas tienen CMK y PITR; la auditoría tiene TTL. |
 | Decisión humana | Aprobar un reembolso y reiniciar el pedido demo requieren supervisión, confirmación explícita y versión vigente. Pasan por API y backend; no se ofrecen al modelo ni a Gateway. |
@@ -42,7 +46,7 @@ IAM separa los roles del backend, las herramientas y Gateway. CloudWatch recibe 
 
 Terraform crea primero el backend S3 versionado y cifrado en `bootstrap`, y luego las capas `foundation` → `data` → `compute`. Las capas consumen las salidas de sus dependencias mediante `terraform_remote_state`. El DNS compartido y el certificado wildcard existente se administran fuera de estas capas; la distribución de `auth` la administra Cognito. WAF se asocia al frontend CloudFront; no se lo representa protegiendo la API ni Cognito.
 
-Los diagramas representan el recorrido con `enable_agentcore=true`. Ver [arquitectura y límites de confianza](docs/arquitectura.md) y [fuente de los íconos y regeneración](docs/assets/README.md).
+Los diagramas representan el recorrido con `enable_agentcore=true`. Ver [arquitectura y límites de confianza](docs/arquitectura.md), [despliegue verificado](docs/operacion.md) y [fuente de los íconos y regeneración](docs/assets/README.md).
 
 El frontend no contiene credenciales AWS. La identidad del usuario viene del JWT validado; la identidad de la carga de trabajo es el IAM execution role de Lambda, con credenciales temporales administradas por AWS. El modelo no autoriza operaciones.
 
@@ -59,12 +63,13 @@ El frontend no contiene credenciales AWS. La identidad del usuario viene del JWT
 
 ## Requisitos
 
-- Cuenta AWS de laboratorio, perfil AWS CLI vigente y acceso regional al modelo Bedrock configurado. Preferir IAM Identity Center/SSO.
-- Terraform **1.17.0** y AWS provider **6.70.0**, con locks incluidos para Windows y Linux.
-- Python **3.14.9** para Lambda `python3.14`. CI comprueba también **3.15.1** como compatibilidad del lenguaje, sin desplegar ese runtime.
-- PowerShell **7.6.8**, Node.js **26.12.1 Current**, npm **12.2.1**, AWS CLI **2.38.5** y Trivy **0.76.1**.
+- Una cuenta AWS de laboratorio y un perfil AWS CLI con sesión vigente; preferir IAM Identity Center/SSO.
+- Terraform **1.17.0** y AWS provider **6.70.0**, fijados en las herramientas/locks del proyecto.
+- Python **3.14.9** como base compatible con el runtime Lambda `python3.14` generalmente disponible; CI también comprueba **3.15.1**, última versión estable del lenguaje. Dependencias fijadas en `requirements.lock`.
+- Permiso y disponibilidad regional del modelo configurado para Bedrock. Verificar habilitación, cuotas y términos del proveedor del modelo.
+- PowerShell **7.6.8** para los scripts incluidos. Node.js **26.12.1 Current** y npm **12.2.1** para las pruebas del frontend. Git for Windows **2.56.0.windows.3** y AWS CLI **2.38.5** como herramientas de operación.
 
-Los pins y sus fuentes oficiales están en [toolchain.versions.json](toolchain.versions.json) y [versiones](docs/versiones.md). CI valida código, infraestructura y seguridad sin acceder a una cuenta AWS ni desplegar recursos.
+Estas versiones estables se contrastaron con fuentes oficiales el **23 de octubre de 2026**. Python 3.15.1 es estable como lenguaje, pero su runtime Lambda sigue en preview: el despliegue conserva `python3.14`, última rama GA. Se eligió Node Current según el requisito de usar la última estable; no se lo presenta como LTS. CI utiliza `ubuntu-26.04`, ya disponible de forma general, y actions fijadas por SHA. Consultar [versiones y fuentes](docs/versiones.md) y [validación ejecutada](docs/validacion.md).
 
 Antes de trabajar, verificar versiones contra sus fuentes oficiales. El mismo control es obligatorio en CI y falla si encuentra una nueva versión estable, un pin inconsistente o una fuente no verificable:
 
@@ -165,10 +170,8 @@ Consulta [Contrato de API](docs/api.md), [Modelo de amenazas](docs/seguridad.md)
 
 Bedrock, Lambda, API Gateway, DynamoDB, CloudFront, S3, KMS y logs pueden generar costos. No se garantiza costo cero. Revisar los precios de la región, presupuestos, retención y cuotas antes del evento. El retiro es manual, con revisión de dependencias y datos; consulta [Operación](docs/operacion.md). Nunca borrar automáticamente recursos o evidencia al terminar una demo.
 
-## Material público
+## Publicación
 
-Repositorio: [dannyfriz/aws-ecommerce-agent-demo](https://github.com/dannyfriz/aws-ecommerce-agent-demo).
-
-La [demo de la charla](https://demo.ikigaisolutions.cl/) requiere cuentas entregadas por el expositor. Este repositorio no incluye contraseñas ni habilita registro público. Para practicar de forma independiente, desplegar una copia en una cuenta propia con los ejemplos y crear usuarios con `Seed-Demo.ps1`.
+Repositorio público para compartir en la charla: [dannyfriz/aws-ecommerce-agent-demo](https://github.com/dannyfriz/aws-ecommerce-agent-demo). Contiene una copia seleccionada con historial nuevo, ejemplos genéricos y la presentación final. El repositorio de trabajo conserva su visibilidad privada. Ver [alcance de la publicación](docs/operacion.md).
 
 La publicación excluye estados Terraform, planes, archivos de variables privadas, tokens y credenciales. Antes de cada contribución, revisar los archivos preparados para commit y ejecutar las verificaciones de seguridad. El titular todavía no ha definido una licencia de distribución; la visibilidad pública no concede por sí sola una licencia de código abierto.

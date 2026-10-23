@@ -31,7 +31,7 @@ resource "aws_apigatewayv2_integration" "backend" {
   timeout_milliseconds   = 29000
 }
 resource "aws_apigatewayv2_route" "routes" {
-  for_each             = toset(["GET /api/me", "GET /api/orders/{order_id}", "GET /api/refunds/pending", "POST /api/chat", "POST /api/tools", "POST /api/refunds/approve", "POST /api/orders/reset", "GET /api/audit"])
+  for_each             = toset(["GET /api/me", "GET /api/preferences", "POST /api/preferences", "GET /api/orders/{order_id}", "GET /api/refunds/pending", "POST /api/chat", "POST /api/tools", "POST /api/refunds/approve", "POST /api/orders/reset", "GET /api/audit"])
   api_id               = aws_apigatewayv2_api.api.id
   route_key            = each.value
   target               = "integrations/${aws_apigatewayv2_integration.backend.id}"

@@ -12,6 +12,10 @@ AgentCore está habilitado de forma predeterminada con `enable_agentcore=true`. 
 
 ## Configuración web
 
+Para habilitar las seis mejoras en `compute`, configura `enable_conversation_memory`, `enable_preference_memory`, `enable_content_guardrails` y `enable_policy_knowledge` en `true` dentro del archivo de variables privado. Sus valores predeterminados son `false`. Después del `apply`, ejecuta `Sync-Knowledge.ps1` con `-ExpectedAccountId` y el perfil de laboratorio: comprueba la cuenta y sincroniza el documento hasta `COMPLETE`. Una base creada todavía necesita esta ingesta para responder. Repetirla tras cambiar las políticas. El procedimiento y las retenciones están en [memoria y conocimiento](memoria-y-conocimiento.md).
+
+Verifica «Consulta P-104» → «Quiero devolverlo», una conversación nueva sin contexto, aislamiento entre usuarios, preferencias tras volver a ingresar, preguntas de políticas con fuente y bloqueos de contenido. Usa un pedido técnico para las pruebas con mutaciones. Ejecuta `Evaluate-Agent.ps1` sin parámetros para la regresión local; `-Live` usa Bedrock con pedidos ficticios y `-Managed` incorpora AgentCore Evaluations. Las evaluaciones no ejecutan operaciones sobre pedidos AWS.
+
 En cuentas de laboratorio con cuota regional Lambda de 10, AWS puede impedir toda reserva porque exige mantener 10 ejecuciones sin reservar. El valor predeterminado reserva 3 por función; únicamente para ese caso se puede indicar `lambda_reserved_concurrent_executions = -1` en las variables privadas de compute. Esto usa el cupo compartido de la cuenta y pierde el aislamiento por función; no aumenta la cuota ni sustituye la reserva. Se mantiene el throttle de API Gateway de 2 solicitudes por segundo y burst 5. Escanear también las variables efectivas con Trivy y restaurar la reserva cuando AWS aumente la cuota.
 
 Terraform en `compute` publica automáticamente el frontend y genera `config.js`; `foundation` configura callbacks y logout de Cognito según la URL del frontend. No se requiere publicar la web manualmente. `config.js` es configuración pública, no un contenedor de secretos:

@@ -1,8 +1,8 @@
 # Recursos desplegados de la demo
 
-Estos nombres corresponden al laboratorio mostrado en la charla. El 23 de octubre de 2026 se verificaron mediante consultas de solo lectura a AWS dos funciones Lambda en estado `Active` y dos tablas DynamoDB en estado `ACTIVE`, todas en `us-east-1`. La consulta no modificó recursos.
+Estos nombres corresponden al laboratorio mostrado en la charla. El 23 de octubre de 2026 se verificaron mediante consultas de solo lectura a AWS dos funciones Lambda en estado `Active` y dos tablas DynamoDB en estado `ACTIVE`, todas en `us-east-1`. También se contrastaron las mejoras de memoria, conocimiento y filtros con Terraform y los outputs privados del despliegue. Los identificadores generados por AWS no se publican aquí.
 
-Los diagramas usan el prefijo común `ecommerce-agent-demo-` y muestran las terminaciones para facilitar su lectura. En la consola se busca el nombre completo.
+Los diagramas usan el prefijo común `ecommerce-agent-demo-` y muestran las terminaciones para facilitar su lectura. En la consola se busca el nombre completo. AgentCore Memory usa el equivalente con guiones bajos: `ecommerce_agent_demo_`.
 
 | Nombre completo | Tipo | Función en la demo |
 |---|---|---|
@@ -12,6 +12,20 @@ Los diagramas usan el prefijo común `ecommerce-agent-demo-` y muestran las term
 | `ecommerce-agent-demo-audit` | Tabla DynamoDB | Guarda la evidencia de las decisiones, incluidos los rechazos. Su retención tiene vencimiento; no es un registro permanente ni inmutable. |
 
 La consulta por chat puede recorrer backend → Bedrock → Gateway/Policy → tools. Los botones de la API y la aprobación humana usan la ruta directa del backend. Ninguna herramienta del modelo aprueba reembolsos.
+
+Las seis mejoras agregan memoria de sesión, aclaraciones, evaluaciones, consulta de políticas, filtros de contenido y preferencias persistentes. Las aclaraciones se procesan en el backend existente; las evaluaciones usan escenarios ficticios y el evaluador incorporado `Builtin.ToolSelectionAccuracy`, sin crear otro agente ni un evaluador propio.
+
+| Nombre estable | Tipo | Función y límite de acceso |
+|---|---|---|
+| `ecommerce_agent_demo_conversation` | AgentCore Memory | Recuerda solo la referencia del pedido y una intención pendiente por usuario y conversación. La memoria no conserva ni concede permisos. |
+| `ecommerce_agent_demo_preferences` | AgentCore Memory | Conserva idioma y nivel de detalle elegidos explícitamente por cada usuario; no guarda roles, pedidos ni aprobaciones. |
+| `ecommerce-agent-demo-content` | Bedrock Guardrails | Revisa ciertos datos sensibles y ataques al prompt mediante una versión publicada. Usa el perfil administrado `us.guardrail.v1:0`; no valida al propietario del pedido. |
+| `ecommerce-agent-demo-policies` | Bedrock Knowledge Base | Busca información en la política ficticia de la tienda. No contiene pedidos ni datos privados de estudiantes. |
+| `ecommerce-agent-demo-policies-CUENTA_AWS` | Bucket S3 privado | Guarda únicamente el documento `policies/politicas-posventa-demo.txt`, cifrado con KMS. |
+| `ecommerce-agent-demo-policy-vectors-CUENTA_AWS` / `policies` | Bucket e índice S3 Vectors | Guardan las representaciones numéricas del documento para buscar por significado. El modelo utilizado es `amazon.titan-embed-text-v2:0`. |
+| `ecommerce-agent-demo-policy-knowledge` | Rol IAM de la Knowledge Base | Permite leer el documento, invocar el modelo de embeddings y utilizar el índice específico. No concede acceso a las tablas DynamoDB. |
+
+El backend recibe permisos separados y acotados para cada capacidad. Recordar «P-104», recuperar una política o superar un filtro no prueba que la persona pueda acceder al pedido: la sesión verificada y las reglas del servidor siguen decidiendo.
 
 ## ARN de cada recurso
 
@@ -42,6 +56,23 @@ arn:aws:dynamodb:us-east-1:CUENTA_AWS:table/ecommerce-agent-demo-audit
 ```
 
 En el ARN de la tabla, `dynamodb` indica el servicio; `us-east-1`, la región; `CUENTA_AWS`, la cuenta; y `table/ecommerce-agent-demo-orders`, el recurso. Reconocer estas partes permite comprobar a qué destino llega un permiso sin memorizar la cadena completa.
+
+Para los recursos con identificadores generados, los marcadores `ID_…` se sustituyen por los outputs privados del ambiente. El nombre visible de una memoria, guardrail o base de conocimiento no reemplaza su identificador en el ARN.
+
+| Recurso | ARN de referencia |
+|---|---|
+| Memoria de conversación | `arn:aws:bedrock-agentcore:us-east-1:CUENTA_AWS:memory/ID_MEMORIA_CONVERSACION` |
+| Memoria de preferencias | `arn:aws:bedrock-agentcore:us-east-1:CUENTA_AWS:memory/ID_MEMORIA_PREFERENCIAS` |
+| Guardrail de contenido | `arn:aws:bedrock:us-east-1:CUENTA_AWS:guardrail/ID_GUARDRAIL` |
+| Perfil administrado de Guardrails | `arn:aws:bedrock:us-east-1:CUENTA_AWS:guardrail-profile/us.guardrail.v1:0` |
+| Base de conocimiento | `arn:aws:bedrock:us-east-1:CUENTA_AWS:knowledge-base/ID_BASE_CONOCIMIENTO` |
+| Documento de políticas | `arn:aws:s3:::ecommerce-agent-demo-policies-CUENTA_AWS/policies/politicas-posventa-demo.txt` |
+| Bucket S3 Vectors | `arn:aws:s3vectors:us-east-1:CUENTA_AWS:bucket/ecommerce-agent-demo-policy-vectors-CUENTA_AWS` |
+| Índice de políticas | `arn:aws:s3vectors:us-east-1:CUENTA_AWS:bucket/ecommerce-agent-demo-policy-vectors-CUENTA_AWS/index/policies` |
+| Rol de la Knowledge Base | `arn:aws:iam::CUENTA_AWS:role/ecommerce-agent-demo-policy-knowledge` |
+| Modelo de embeddings | `arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0` |
+
+El perfil US de Guardrails también requiere permisos sobre los ARN del mismo perfil en `us-east-2` y `us-west-2`. Es un recurso administrado por AWS, distinto del perfil de aplicación que atribuye costos de inferencia. El ARN del modelo de embeddings deja vacía la cuenta porque identifica un modelo fundacional de AWS; no es un modelo entrenado por el proyecto.
 
 ## Una función y su rol son recursos distintos
 
@@ -75,7 +106,11 @@ Los nombres se construyen como `${var.project}-${var.environment}` más el sufij
 | [compute/versions.tf](../infra/compute/versions.tf) y [data/versions.tf](../infra/data/versions.tf) | Proyecto, ambiente, región y prefijo de nombres. |
 | [backend.tf](../infra/compute/backend.tf) | Función backend, rol y acceso técnico a los servicios. |
 | [agentcore.tf](../infra/compute/agentcore.tf) | Función tools, su rol y el permiso sobre la tabla de pedidos. |
+| [memory.tf](../infra/compute/memory.tf) | Memorias de conversación y preferencias, cifrado, retención y permisos por ambiente. |
+| [guardrails.tf](../infra/compute/guardrails.tf) | Guardrail publicado, perfil entre regiones y permiso limitado a `ApplyGuardrail`. |
+| [knowledge.tf](../infra/compute/knowledge.tf) | Documento S3, índice vectorial, modelo de embeddings, Knowledge Base y rol independiente. |
 | [data/main.tf](../infra/data/main.tf) | Tablas de pedidos y auditoría, claves, cifrado y retención. |
 | [application.py](../src/ecommerce_agent/application.py) | Autorización por persona, propietario, rol y estado del pedido. |
+| [adapters.py](../src/ecommerce_agent/adapters.py) y [evaluaciones-agente.md](evaluaciones-agente.md) | Propuestas de acción y aclaraciones; escenarios y evaluaciones que comprueban su comportamiento. |
 
-La diapositiva 7 ubica los nombres en el recorrido; la 13 relaciona acción y ARN con mínimo privilegio. Los anexos 23 y 24 conservan la misma nomenclatura en los diagramas. El anexo 25 reúne los cuatro nombres con su función. Esta guía añade los ARN de referencia para consultar durante las preguntas.
+La diapositiva 7 ubica los nombres del flujo principal; la 13 relaciona acción y ARN con mínimo privilegio. Los anexos 23 y 24 conservan esa nomenclatura y el anexo 25 reúne las dos funciones y las dos tablas. Las capacidades adicionales y sus límites se detallan en [memoria-y-conocimiento.md](memoria-y-conocimiento.md). Esta guía permite conectar los ejemplos de la charla con los recursos de la consola sin publicar identificadores privados.

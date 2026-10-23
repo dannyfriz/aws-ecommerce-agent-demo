@@ -13,6 +13,13 @@ resource "aws_kms_key_policy" "app" {
     Version = "2012-10-17", Statement = [
       { Sid = "AdministracionCuenta", Effect = "Allow", Principal = { AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root" }, Action = "kms:*", Resource = "*" },
       { Sid = "CloudWatchLogs", Effect = "Allow", Principal = { Service = "logs.${var.region}.amazonaws.com" }, Action = ["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey"], Resource = "*", Condition = { ArnLike = { "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/${local.name}/*" } } },
+      { Sid = "IndexacionVectorialDeEsteProyecto", Effect = "Allow", Principal = { Service = "indexing.s3vectors.amazonaws.com" }, Action = "kms:Decrypt", Resource = "*",
+        Condition = {
+          StringEquals               = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id },
+          ArnLike                    = { "aws:SourceArn" = ["arn:${data.aws_partition.current.partition}:s3vectors:${var.region}:${data.aws_caller_identity.current.account_id}:bucket/${local.name}-policy-vectors-${data.aws_caller_identity.current.account_id}", "arn:${data.aws_partition.current.partition}:s3vectors:${var.region}:${data.aws_caller_identity.current.account_id}:bucket/${local.name}-policy-vectors-${data.aws_caller_identity.current.account_id}/*"] },
+          "ForAnyValue:StringEquals" = { "kms:EncryptionContextKeys" = ["aws:s3vectors:arn", "aws:s3vectors:resource-id"] }
+        }
+      },
       { Sid = "CloudFrontSoloEstaDistribucion", Effect = "Allow", Principal = { Service = "cloudfront.amazonaws.com" }, Action = "kms:Decrypt", Resource = "*", Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.web.arn } } }
   ] })
 }

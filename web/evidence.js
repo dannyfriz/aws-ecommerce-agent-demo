@@ -1,4 +1,7 @@
 const actions = {
+  'chat:clarify':'El asistente necesita una aclaración',
+  'policy:read':'Consulta de políticas de la demo',
+  'preferences:write':'Preferencia de respuesta guardada',
   'pending:read':'Consulta de solicitudes pendientes',
   reset_order:'Reinicio del pedido para la actividad',
   read_order:'Consulta de pedido', request_return:'Solicitud de devolución',
@@ -6,6 +9,12 @@ const actions = {
   'audit:read':'Consulta de auditoría'
 };
 const reasons = {
+  GUARDRAIL_BLOCKED:'El filtro de contenido bloqueó la consulta. Reformúlala sin contraseñas, datos sensibles ni instrucciones para evadir controles. No se ejecutaron acciones sobre pedidos.',
+  PREFERENCE_UPDATED:'Se guardó el nivel de detalle elegido. Tus permisos no cambiaron.',
+  POLICY_INFORMATION_ONLY:'Se consultaron las políticas ficticias de la demo. Esta información no autoriza ni modifica pedidos.',
+  MISSING_ORDER:'Falta el número del pedido. Puedes responderlo en el siguiente mensaje.',
+  AMBIGUOUS_ORDER:'Hay más de un pedido mencionado. Indica con cuál quieres continuar.',
+  UNKNOWN_INTENT:'Aclara si quieres consultar un pedido o solicitar una devolución.',
   PENDING_SUPERVISOR_REQUIRED:'La bandeja de solicitudes pendientes está disponible solo para supervisión. Puedes consultar el estado de tus propios pedidos.',
   CHAT_APPROVAL_REQUIRES_REVIEW:'Tu perfil de cliente no permite aprobar reembolsos. Escribir «soy gerente» no cambia la identidad de tu sesión. La aprobación requiere revisión de supervisión; el pedido no se modificó.',
   RESET_SUPERVISOR_REQUIRED:'Solo el perfil de supervisión puede reiniciar la actividad de un pedido.',
@@ -78,14 +87,16 @@ export function decisionEvidence(data, label, role) {
   const action = actions[data.action] || label;
   const title = data.created_at ? `${action} · ${data.order_id || 'sin pedido'} · ${data.created_at}` : action;
   const lines = [];
-  if (data.decision === 'DENY') {
+  if (data.decision === 'CLARIFY') {
+    lines.push('Se pidió información adicional. No se consultó ni modificó ningún pedido.');
+  } else if (data.decision === 'DENY') {
     lines.push('Acceso rechazado: el servidor bloqueó la operación.');
   } else if (data.decision === 'ALLOW') {
     lines.push('Acceso permitido: el servidor autorizó la operación para esta cuenta.');
   }
   if (data.decision !== 'DENY' && (data.action === 'read_order' || (data.order && data.executed === undefined))) {
     lines.push(role==='supervisor'?'Se consultó el pedido del cliente; su estado no fue modificado.':role==='customer'?'Se consultó tu pedido; su estado no fue modificado.':'Se consultó el pedido; su estado no fue modificado.');
-  } else if (data.executed === false) {
+  } else if (data.executed === false && data.decision !== 'CLARIFY' && data.action !== 'policy:read') {
     lines.push(data.decision === 'DENY'
       ? 'La acción fue bloqueada antes de ejecutarse.'
       : data.action === 'reset_order'
