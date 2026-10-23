@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: terraform
+    directory: /infra/compute
+    schedule:
+      interval: weekly
+  - package-ecosystem: terraform
+    directory: /infra/foundation
+    schedule:
+      interval: weekly
+  - package-ecosystem: terraform
+    directory: /infra/data
+    schedule:
+      interval: weekly
+  - package-ecosystem: terraform
+    directory: /infra/bootstrap
+    schedule:
+      interval: weekly

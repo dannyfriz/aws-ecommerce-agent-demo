@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {decisionEvidence,errorExplanation,chatErrorReply} from '../web/evidence.js';
+
+const read = decisionEvidence({decision:'ALLOW',order:{return_status:'REQUESTED'}},'Consulta');
+assert.ok(read.lines.some(line=>line.includes('su estado no fue modificado')));
+assert.ok(!read.lines.some(line=>line.includes('quedó registrada')));
+const repeated = decisionEvidence({decision:'ALLOW',executed:false,order:{return_status:'REQUESTED'}},'Devolución');
+assert.ok(repeated.lines.some(line=>line.includes('No se aplicó un nuevo cambio')));
+const created = decisionEvidence({decision:'ALLOW',executed:true,order:{return_status:'REQUESTED'}},'Devolución');
+assert.ok(created.lines.some(line=>line.includes('pendiente de aprobación humana')));
+const reset = decisionEvidence({decision:'ALLOW',executed:true,action:'reset_order',order:{return_status:'NONE'}},'Reinicio');
+assert.ok(reset.lines.some(line=>line.includes('listo para repetir la actividad')));
+const denied = decisionEvidence({decision:'DENY',executed:false,reason:'RESOURCE_NOT_AUTHORIZED'},'Consulta');
+assert.ok(denied.lines.some(line=>line.includes('Acceso rechazado')));
+assert.ok(!denied.lines.some(line=>line.includes('ya estaba registrada')));
+assert.ok(errorExplanation({code:'MODEL_INVALID_RESPONSE'}).includes('No se ejecutó ninguna herramienta'));
+assert.equal(errorExplanation({code:'UNKNOWN',message:'Servicio no disponible.'}),'Servicio no disponible.');
+assert.ok(decisionEvidence({action:'read_order',created_at:'2026-10-22',order_id:'P-104'},'Auditoría').title.includes('P-104'));
+assert.ok(chatErrorReply({reason:'MODEL_TOOL_NOT_ALLOWED'}).includes('revisión humana'));
+assert.ok(chatErrorReply({reason:'RESOURCE_NOT_AUTHORIZED'}).includes('desde tu cuenta'));
+assert.ok(!chatErrorReply({reason:'RESOURCE_NOT_AUTHORIZED'}).includes('pertenece a'));
+assert.ok(chatErrorReply({code:'MODEL_INVALID_RESPONSE'}).includes('no se ejecutó ninguna herramienta'));
+const unavailable=chatErrorReply({code:'DEPENDENCY_UNAVAILABLE',message:'El servicio no está disponible. No se confirmó la operación.'});
+assert.ok(unavailable.includes('No se confirmó la operación'));
+assert.ok(!unavailable.includes('no permitió'));
+console.log('Evidencia: consulta, cambio, reintento, rechazo y errores verificados.');

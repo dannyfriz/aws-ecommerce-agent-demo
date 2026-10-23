@@ -1,0 +1,23 @@
+scan:
+  scanners:
+    - vuln
+    - misconfig
+    - secret
+  skip-dirs:
+    - '**/.git'
+    - '**/.build'
+    - '**/.terraform'
+    - '**/.venv'
+    - '**/__pycache__'
+    - '**/node_modules'
+  # El archivo de propietario de PowerPoint queda bloqueado mientras se edita; no contiene la presentación.
+  skip-files:
+    - '**/~$*.pptx'
+disable-telemetry: true
+timeout: 10m
+severity:
+  - UNKNOWN
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL

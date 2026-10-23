@@ -1,0 +1,84 @@
+{
+  "verified_on": "2026-10-22",
+  "ci_runner": "ubuntu-26.04",
+  "python": {
+    "upstream": "3.15.1",
+    "lambda_ga": "3.14",
+    "reference": "3.14.9",
+    "source": "https://www.python.org/api/v2/downloads/release/?is_published=true&pre_release=false",
+    "lambda_source": "https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html"
+  },
+  "node": {
+    "version": "26.12.1",
+    "bundled_npm": "11.20.0",
+    "source": "https://nodejs.org/dist/index.json"
+  },
+  "terraform": {
+    "version": "1.17.0",
+    "source": "https://releases.hashicorp.com/terraform/index.json"
+  },
+  "aws_provider": {
+    "version": "6.70.0",
+    "source": "https://registry.terraform.io/v1/providers/hashicorp/aws"
+  },
+  "pypi": {
+    "boto3": "1.43.118",
+    "botocore": "1.43.118",
+    "jmespath": "1.1.0",
+    "s3transfer": "0.19.3",
+    "python-dateutil": "2.9.0.post0",
+    "six": "1.17.0",
+    "urllib3": "2.8.0",
+    "setuptools": "84.2.1",
+    "pip": "26.2.2"
+  },
+  "pypi_source": "https://pypi.org/pypi/{name}/json",
+  "npm": {
+    "version": "12.2.1",
+    "source": "https://registry.npmjs.org/npm/latest"
+  },
+  "powershell": {
+    "version": "7.6.8",
+    "source": "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
+  },
+  "git_windows": {
+    "version": "2.56.0.windows.3",
+    "source": "https://api.github.com/repos/git-for-windows/git/releases/latest"
+  },
+  "trivy": {
+    "version": "0.76.1",
+    "source": "https://api.github.com/repos/aquasecurity/trivy/releases/latest",
+    "windows_sha256": "1051f49cb22d5284f43425f72aad9cda63ca12ceb92e7caa06903490c82dc9bf",
+    "linux_sha256": "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0"
+  },
+  "aws_cli": {
+    "version": "2.38.5",
+    "source": "https://raw.githubusercontent.com/aws/aws-cli/v2/awscli/__init__.py",
+    "changelog_source": "https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst"
+  },
+  "actions": {
+    "actions/checkout": {
+      "version": "v7.0.1",
+      "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    },
+    "actions/setup-python": {
+      "version": "v7.1.0",
+      "sha": "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"
+    },
+    "actions/setup-node": {
+      "version": "v7.1.0",
+      "sha": "949feb2413d6458794dcd2491c4babbbce0c15c1"
+    },
+    "hashicorp/setup-terraform": {
+      "version": "v4.0.1",
+      "sha": "dfe3c3f87815947d99a8997f908cb6525fc44e9e"
+    }
+  },
+  "compatibility": {
+    "python-dateutil": {
+      "required_by": "botocore",
+      "constraint": "<3.0.0,>=2.1",
+      "reason": "La \u00faltima versi\u00f3n de botocore exige python-dateutil<3.0.0; se utiliza la \u00faltima estable compatible."
+    }
+  }
+}
