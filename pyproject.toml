@@ -7,7 +7,7 @@ name = "aws-ecommerce-identity-lab"
 version = "0.1.0"
 description = "Soporte posventa con identidad, autorización y aprobación humana en AWS"
 requires-python = ">=3.14,<3.16"
-dependencies = ["boto3==1.43.118"]
+dependencies = ["boto3==1.43.120"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
